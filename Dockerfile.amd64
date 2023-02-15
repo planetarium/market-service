@@ -1,0 +1,23 @@
+﻿FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim AS base
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+WORKDIR /src
+COPY ["lib9c/Lib9c/Lib9c.csproj", "lib9c/Lib9c/"]
+COPY ["NineChronicles.RPC.Shared/NineChronicles.RPC.Shared/NineChronicles.RPC.Shared.csproj", "NineChronicles.RPC.Shared/NineChronicles.RPC.Shared/"]
+COPY ["MarketService/MarketService.csproj", "MarketService/"]
+RUN dotnet restore "lib9c/Lib9c"
+RUN dotnet restore "NineChronicles.RPC.Shared/NineChronicles.RPC.Shared"
+RUN dotnet restore "MarketService"
+COPY . ./
+WORKDIR "/src"
+FROM build AS publish
+ARG COMMIT
+RUN dotnet publish "MarketService/MarketService.csproj" -c Release -r linux-x64 -o /app/publish --version-suffix $COMMIT
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "MarketService.dll"]
