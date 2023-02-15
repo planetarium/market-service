@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketService", "MarketService\MarketService.csproj", "{E581754C-EC78-48F2-AAB0-ABC8A99B962C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NineChronicles.RPC.Shared", "NineChronicles.RPC.Shared\NineChronicles.RPC.Shared\NineChronicles.RPC.Shared.csproj", "{38C76844-F174-4499-9E58-D14B2A7BBF45}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c", "lib9c\Lib9c\Lib9c.csproj", "{053A40DE-6FF2-42F3-B9F1-526207C44314}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet", "lib9c\.Libplanet\Libplanet\Libplanet.csproj", "{A92AA0D6-6663-4177-9CD8-221128CA1BF9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Analyzers", "lib9c\.Libplanet\Libplanet.Analyzers\Libplanet.Analyzers.csproj", "{85B0BCE1-519B-4A1A-9257-58B204549909}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketService.Tests", "MarketService.Tests\MarketService.Tests.csproj", "{18C983E7-0A4F-4272-9744-25CFAAF30BF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c.Abstractions", "lib9c\Lib9c.Abstractions\Lib9c.Abstractions.csproj", "{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E581754C-EC78-48F2-AAB0-ABC8A99B962C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E581754C-EC78-48F2-AAB0-ABC8A99B962C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E581754C-EC78-48F2-AAB0-ABC8A99B962C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E581754C-EC78-48F2-AAB0-ABC8A99B962C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38C76844-F174-4499-9E58-D14B2A7BBF45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38C76844-F174-4499-9E58-D14B2A7BBF45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38C76844-F174-4499-9E58-D14B2A7BBF45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38C76844-F174-4499-9E58-D14B2A7BBF45}.Release|Any CPU.Build.0 = Release|Any CPU
+		{053A40DE-6FF2-42F3-B9F1-526207C44314}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{053A40DE-6FF2-42F3-B9F1-526207C44314}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{053A40DE-6FF2-42F3-B9F1-526207C44314}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{053A40DE-6FF2-42F3-B9F1-526207C44314}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A92AA0D6-6663-4177-9CD8-221128CA1BF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A92AA0D6-6663-4177-9CD8-221128CA1BF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A92AA0D6-6663-4177-9CD8-221128CA1BF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A92AA0D6-6663-4177-9CD8-221128CA1BF9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{85B0BCE1-519B-4A1A-9257-58B204549909}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{85B0BCE1-519B-4A1A-9257-58B204549909}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{85B0BCE1-519B-4A1A-9257-58B204549909}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{85B0BCE1-519B-4A1A-9257-58B204549909}.Release|Any CPU.Build.0 = Release|Any CPU
+		{18C983E7-0A4F-4272-9744-25CFAAF30BF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{18C983E7-0A4F-4272-9744-25CFAAF30BF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{18C983E7-0A4F-4272-9744-25CFAAF30BF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{18C983E7-0A4F-4272-9744-25CFAAF30BF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
