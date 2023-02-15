@@ -14,6 +14,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketService.Tests", "Mark
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c.Abstractions", "lib9c\Lib9c.Abstractions\Lib9c.Abstractions.csproj", "{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketService.Response", "MarketService.Response\MarketService.Response.csproj", "{4F8851C1-92E0-4035-9221-6256E48D2632}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,5 +50,9 @@ Global
 		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{48C579CF-F3A6-4B14-8D6A-4EF9B525315D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F8851C1-92E0-4035-9221-6256E48D2632}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F8851C1-92E0-4035-9221-6256E48D2632}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F8851C1-92E0-4035-9221-6256E48D2632}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F8851C1-92E0-4035-9221-6256E48D2632}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

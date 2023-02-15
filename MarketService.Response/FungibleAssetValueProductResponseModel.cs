@@ -1,16 +1,13 @@
-using System.ComponentModel.DataAnnotations;
+using System;
 using Libplanet;
-using MarketService.Response;
 using MarketService.Response.Interface;
-using Microsoft.EntityFrameworkCore;
 
-namespace MarketService.Models;
+namespace MarketService.Response;
 
-[Index(nameof(Exist))]
-public class ProductModel : IProductSchema
+[Serializable]
+public class FungibleAssetValueProductResponseModel : IFungibleAssetValueProductSchema
 {
-    [Key] public Guid ProductId { get; set; }
-
+    public Guid ProductId { get; set; }
     public Address SellerAgentAddress { get; set; }
     public Address SellerAvatarAddress { get; set; }
     public decimal Price { get; set; }
@@ -18,4 +15,6 @@ public class ProductModel : IProductSchema
     public long RegisteredBlockIndex { get; set; }
     public bool Exist { get; set; }
     public bool Legacy { get; set; }
+    public byte DecimalPlaces { get; set; }
+    public string Ticker { get; set; }
 }

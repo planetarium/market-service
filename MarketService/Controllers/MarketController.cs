@@ -1,4 +1,5 @@
 using Libplanet;
+using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Nekoyume.Model.Item;
@@ -43,9 +44,10 @@ public class MarketController : ControllerBase
             _ => query
         };
         var totalCount = query.Count();
-        return new MarketProductResponse(queryLimit,
-            queryOffset,
+        return new MarketProductResponse(
             totalCount,
+            queryLimit,
+            queryOffset,
             query
                 .Skip(queryOffset)
                 .Take(queryLimit));
@@ -59,9 +61,10 @@ public class MarketController : ControllerBase
             .AsNoTracking()
             .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
             .OrderByDescending(p => p.RegisteredBlockIndex);
-        return new MarketProductResponse(0,
-            0,
+        return new MarketProductResponse(
             query.Count(),
+            0,
+            0,
             query);
     }
 }
