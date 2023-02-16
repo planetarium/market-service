@@ -1,16 +1,11 @@
-using System.ComponentModel.DataAnnotations;
+using System;
 using Libplanet;
-using MarketService.Response;
-using MarketService.Response.Interface;
-using Microsoft.EntityFrameworkCore;
 
-namespace MarketService.Models;
+namespace MarketService.Response.Interface;
 
-[Index(nameof(Exist))]
-public class ProductModel : IProductSchema
+public interface IProductSchema
 {
-    [Key] public Guid ProductId { get; set; }
-
+    public Guid ProductId { get; set; }
     public Address SellerAgentAddress { get; set; }
     public Address SellerAvatarAddress { get; set; }
     public decimal Price { get; set; }
