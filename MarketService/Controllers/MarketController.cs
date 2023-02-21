@@ -85,7 +85,9 @@ public class MarketController : ControllerBase
                 .Include(p => p.Skills)
                 .Include(p => p.Stats)
                 .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
-                .OrderByDescending(p => p.RegisteredBlockIndex).ToListAsync();
+                .OrderByDescending(p => p.RegisteredBlockIndex)
+                .AsSingleQuery()
+                .ToListAsync();
             _memoryCache.Set(address, query, TimeSpan.FromMinutes(1f));
             queryResult = query;
         }
