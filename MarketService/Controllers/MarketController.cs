@@ -24,13 +24,13 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/items/{type}")]
-    public MarketProductResponse GetItemProducts(int type, int? limit, int? offset, string? order)
+    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order)
     {
         var itemSubType = (ItemSubType) type;
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var sort = string.IsNullOrEmpty(order) ? "cp_desc" : order;
-        var queryResult = Get(itemSubType, queryLimit, queryOffset, sort);
+        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort);
         var totalCount = queryResult.Count;
         return new MarketProductResponse(
             totalCount,
@@ -41,7 +41,7 @@ public class MarketController : ControllerBase
                 .Take(queryLimit));
     }
 
-    private List<ItemProductModel> Get(ItemSubType itemSubType, int queryLimit, int queryOffset, string sort)
+    private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset, string sort)
     {
         var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
@@ -66,7 +66,7 @@ public class MarketController : ControllerBase
                 "crystal_per_price" => query.OrderBy(p => p.CrystalPerPrice),
                 _ => query
             };
-            var result = query.ToList();
+            var result = await query.ToListAsync();
             _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(1f));
             queryResult = result;
         }
@@ -75,17 +75,17 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/{address}")]
-    public MarketProductResponse GetItemProducts(string address)
+    public async Task<MarketProductResponse> GetItemProducts(string address)
     {
         if (!_memoryCache.TryGetValue(address, out List<ItemProductModel>? queryResult))
         {
             var avatarAddress = new Address(address);
-            var query = _dbContext.ItemProducts
+            var query = await _dbContext.ItemProducts
                 .AsNoTracking()
                 .Include(p => p.Skills)
                 .Include(p => p.Stats)
                 .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
-                .OrderByDescending(p => p.RegisteredBlockIndex).ToList();
+                .OrderByDescending(p => p.RegisteredBlockIndex).ToListAsync();
             _memoryCache.Set(address, query, TimeSpan.FromMinutes(1f));
             queryResult = query;
         }
