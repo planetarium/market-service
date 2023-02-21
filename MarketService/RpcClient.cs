@@ -277,7 +277,7 @@ public class RpcClient
         {
             var costumeStatSheet = await GetCostumeStatSheet(hashBytes);
             var marketState = await GetMarket(hashBytes);
-            var avatarAddressList = marketState.AvatarAddressList;
+            var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
             var chainIds = new List<Guid>();
             var products = new List<Product>();
@@ -470,10 +470,10 @@ public class RpcClient
     private async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
         byte[] hashBytes)
     {
-        var productListAddresses = avatarAddressList.Select(a => ProductList.DeriveAddress(a).ToByteArray()).ToList();
+        var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
         var productListResult = await GetChunkedStates(productListAddresses, hashBytes);
-        var productLists = GetProductList(productListResult);
-        var productIdList = productLists.SelectMany(p => p.ProductIdList).ToList();
+        var productLists = GetProductsState(productListResult);
+        var productIdList = productLists.SelectMany(p => p.ProductIds).ToList();
         var productIds = new Dictionary<Address, Guid>();
         foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
         var productResult = await GetChunkedStates(productIds.Keys.Select(a => a.ToByteArray()).ToList(), hashBytes);
@@ -487,12 +487,12 @@ public class RpcClient
         return result;
     }
 
-    private List<ProductList> GetProductList(Dictionary<Address, IValue> queryResult)
+    private List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
     {
-        var result = new List<ProductList>();
+        var result = new List<ProductsState>();
         foreach (var kv in queryResult)
             if (kv.Value is List list)
-                result.Add(new ProductList(list));
+                result.Add(new ProductsState(list));
 
         return result;
     }
