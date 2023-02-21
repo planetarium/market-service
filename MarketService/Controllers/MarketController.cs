@@ -97,4 +97,31 @@ public class MarketController : ControllerBase
             0,
             queryResult);
     }
+
+    [HttpGet("products/fav/{ticker}")]
+    public async Task<MarketProductResponse> GetFavProducts(string ticker, int? limit, int? offset)
+    {
+        var queryOffset = offset ?? 0;
+        var queryLimit = limit ?? 100;
+        var cacheKey = $"{ticker}_{queryLimit}_{queryOffset}";
+        if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
+        {
+            var query = await _dbContext.FungibleAssetValueProducts
+                .AsNoTracking()
+                .Where(p => p.Ticker == ticker && p.Exist)
+                .OrderByDescending(p => p.RegisteredBlockIndex)
+                .ThenByDescending(p => p.Quantity)
+                .AsSingleQuery()
+                .ToListAsync();
+            _memoryCache.Set(cacheKey, query, TimeSpan.FromMinutes(1f));
+            queryResult = query;
+        }
+        return new MarketProductResponse(
+            queryResult!.Count,
+            0,
+            0,
+            queryResult
+                .Skip(queryOffset)
+                .Take(queryLimit));
+    }
 }
