@@ -357,8 +357,8 @@ public class RpcClient
         var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy).Select(p => p.ProductId);
         var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId));
         var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
+        var favProducts = filteredProducts.OfType<FavProduct>().ToList();
         var list = new List<ProductModel>();
-        var items = itemProducts.Select(i => i.TradableItem).ToList();
         foreach (var itemProduct in itemProducts)
         {
             var item = (ItemBase) itemProduct.TradableItem;
@@ -440,6 +440,25 @@ public class RpcClient
             }
 
             list.Add(itemProductModel);
+        }
+
+        foreach (var favProduct in favProducts)
+        {
+            var asset = favProduct.Asset;
+            var favProductModel = new FungibleAssetValueProductModel
+            {
+                SellerAvatarAddress = favProduct.SellerAvatarAddress,
+                DecimalPlaces = asset.Currency.DecimalPlaces,
+                Exist = true,
+                Legacy = false,
+                Price = decimal.Parse(favProduct.Price.GetQuantityString()),
+                ProductId = favProduct.ProductId,
+                Quantity = decimal.Parse(asset.GetQuantityString()),
+                RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
+                SellerAgentAddress = favProduct.SellerAgentAddress,
+                Ticker = asset.Currency.Ticker
+            };
+            list.Add(favProductModel);
         }
 
         await marketContext.Products.AddRangeAsync(list);
