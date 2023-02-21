@@ -48,7 +48,10 @@ public class MarketController : ControllerBase
         {
             var query = _dbContext.ItemProducts
                 .AsNoTracking()
-                .Where(p => p.ItemSubType == itemSubType && p.Exist);
+                .Include(p => p.Skills)
+                .Include(p => p.Stats)
+                .Where(p => p.ItemSubType == itemSubType && p.Exist)
+                .AsSingleQuery();
             query = sort switch
             {
                 "cp_desc" => query.OrderByDescending(p => p.CombatPoint),
@@ -79,6 +82,8 @@ public class MarketController : ControllerBase
             var avatarAddress = new Address(address);
             var query = _dbContext.ItemProducts
                 .AsNoTracking()
+                .Include(p => p.Skills)
+                .Include(p => p.Stats)
                 .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
                 .OrderByDescending(p => p.RegisteredBlockIndex).ToList();
             _memoryCache.Set(address, query, TimeSpan.FromMinutes(1f));

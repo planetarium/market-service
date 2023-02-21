@@ -12,8 +12,8 @@ namespace MarketService.Response
         public int TotalCount { get; }
         public int Limit { get; }
         public int Offset { get; }
-        public IEnumerable<ItemProductResponseModel> ItemProducts { get; }
-        public IEnumerable<FungibleAssetValueProductResponseModel> FungibleAssetValueProducts { get; }
+        public List<ItemProductResponseModel> ItemProducts { get; }
+        public List<FungibleAssetValueProductResponseModel> FungibleAssetValueProducts { get; }
 
         public MarketProductResponse(int totalCount, int limit, int offset, IEnumerable<IProductSchema> products)
         {
@@ -21,12 +21,12 @@ namespace MarketService.Response
             Limit = limit;
             Offset = offset;
             var list = products.ToList();
-            ItemProducts = list.OfType<IItemProductModel>().Select(p => p.ToResponse());
-            FungibleAssetValueProducts = list.OfType<IFungibleAssetValueProductModel>().Select(p => p.ToResponse());
+            ItemProducts = list.OfType<IItemProductModel>().Select(p => p.ToResponse()).ToList();
+            FungibleAssetValueProducts = list.OfType<IFungibleAssetValueProductModel>().Select(p => p.ToResponse()).ToList();
         }
         
         [JsonConstructor]
-        public MarketProductResponse(int totalCount, int limit, int offset, IEnumerable<ItemProductResponseModel> itemProducts, IEnumerable<FungibleAssetValueProductResponseModel> fungibleAssetValueProducts)
+        public MarketProductResponse(int totalCount, int limit, int offset, List<ItemProductResponseModel> itemProducts, List<FungibleAssetValueProductResponseModel> fungibleAssetValueProducts)
         {
             TotalCount = totalCount;
             Limit = limit;
