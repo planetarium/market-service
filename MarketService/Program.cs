@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace MarketService;
 
@@ -52,6 +53,7 @@ public class Startup
             options
                 .UseNpgsql(connectionString)
                 .UseLowerCaseNamingConvention()
+                .ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))
         );
         services.AddSingleton<RpcClient>();
         services.AddSingleton<Receiver>();

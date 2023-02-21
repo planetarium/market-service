@@ -5,6 +5,7 @@ using MarketService.Controllers;
 using MarketService.Models;
 using MarketService.Response;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Nekoyume.Helper;
 using Nekoyume.Model.Item;
@@ -15,7 +16,7 @@ namespace MarketService.Tests;
 public class MarketControllerTest
 {
     [Fact]
-    public void GetItemProducts()
+    public async void GetItemProducts()
     {
         var logger = new Logger<MarketController>(new LoggerFactory());
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
@@ -38,8 +39,12 @@ public class MarketControllerTest
         context.Products.Add(product);
         Assert.True(product.Exist);
         context.SaveChanges();
-        var controller = new MarketController(logger, context);
-        var response = controller.GetItemProducts((int) ItemSubType.Armor, null, null, null);
+        var cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = null,
+        });
+        var controller = new MarketController(logger, context, cache);
+        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null);
         var result = Assert.Single(response.ItemProducts);
         Assert.IsType<ItemProductResponseModel>(result);
         Assert.Equal(product.ProductId, result.ProductId);
