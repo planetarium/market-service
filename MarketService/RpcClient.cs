@@ -154,7 +154,7 @@ public class RpcClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unexpected exception occurred during RaiderWorker: {Exc}", e);
+            _logger.LogError(e, "Unexpected exception occurred during SyncOrder: {Exc}", e);
         }
     }
 
@@ -269,7 +269,7 @@ public class RpcClient
         _logger.LogInformation($"{itemSubType}: {list.Count}");
     }
 
-    public async Task SyncProduct(byte[] hashBytes)
+    public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         while (!Init) await Task.Delay(100);
 
@@ -282,20 +282,26 @@ public class RpcClient
             var chainIds = new List<Guid>();
             var products = new List<Product>();
             var productStates = await GetProductStates(avatarAddressList, hashBytes);
+            var marketContext = await _contextFactory.CreateDbContextAsync();
+            var existIds = marketContext.Database
+                .SqlQueryRaw<Guid>(
+                    $"Select productid from products where exist = {true} and legacy = {false}")
+                .ToList();
             foreach (var kv in productStates)
             {
                 chainIds.Add(kv.Key);
                 if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
-
                 if (kv.Value is List deserialized) products.Add(ProductFactory.Deserialize(deserialized));
             }
-
-            await InsertProducts(products, costumeStatSheet);
+            // filter ids chain not exist product ids.
+            deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
+            deletedIds = deletedIds.Distinct().ToList();
+            await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             await UpdateProducts(deletedIds, chainIds);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unexpected exception occurred during RaiderWorker: {Exc}", e);
+            _logger.LogError(e, "Unexpected exception occurred during SyncProduct: {Exc}", e);
         }
     }
 
@@ -345,10 +351,10 @@ public class RpcClient
         _logger.LogInformation($"UpdateProducts: {targetIds.Count}");
     }
 
-    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet)
+    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var existProductIds = marketContext.Products.AsNoTracking().Select(p => p.ProductId);
+        var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy).Select(p => p.ProductId);
         var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId));
         var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
         var list = new List<ProductModel>();
@@ -422,6 +428,15 @@ public class RpcClient
                     Cooldown = s.SkillRow.Cooldown
                 }));
                 itemProductModel.Skills = skillModels;
+                var crystal = CrystalCalculator.CalculateCrystal(
+                    new[] {equipment},
+                    false,
+                    crystalEquipmentGrindingSheet,
+                    crystalMonsterCollectionMultiplierSheet,
+                    0);
+                itemProductModel.Crystal = (int) crystal.MajorUnit;
+                itemProductModel.CrystalPerPrice = (int) crystal
+                    .DivRem(itemProduct.Price.MajorUnit).Quotient.MajorUnit;
             }
 
             list.Add(itemProductModel);
