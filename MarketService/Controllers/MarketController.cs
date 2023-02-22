@@ -3,6 +3,7 @@ using MarketService.Models;
 using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
 
@@ -75,15 +76,15 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/{address}")]
-    public async Task<MarketProductResponse> GetItemProducts(string address)
+    public async Task<MarketProductResponse> GetProducts(string address)
     {
-        if (!_memoryCache.TryGetValue(address, out List<ItemProductModel>? queryResult))
+        if (!_memoryCache.TryGetValue(address, out List<ProductModel>? queryResult))
         {
             var avatarAddress = new Address(address);
-            var query = await _dbContext.ItemProducts
+            var query = await _dbContext.Products
                 .AsNoTracking()
-                .Include(p => p.Skills)
-                .Include(p => p.Stats)
+                .Include(p => ((ItemProductModel)p).Skills)
+                .Include(p => ((ItemProductModel)p).Stats)
                 .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
                 .OrderByDescending(p => p.RegisteredBlockIndex)
                 .AsSingleQuery()
