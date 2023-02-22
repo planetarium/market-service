@@ -36,6 +36,7 @@ public class RpcClientTest
     private readonly CrystalMonsterCollectionMultiplierSheet _crystalMonsterCollectionMultiplierSheet;
     private readonly EquipmentItemSheet.Row _row;
     private readonly TestService _testService;
+    private readonly string _connectionString;
 
     public RpcClientTest()
     {
@@ -214,6 +215,16 @@ public class RpcClientTest
 3,100
 4,200
 5,300");
+        var host = Environment.GetEnvironmentVariable("TEST_DB_HOST") ?? "localhost";
+        var userName = Environment.GetEnvironmentVariable("TEST_DB_USER") ?? "postgres";
+        var pw = Environment.GetEnvironmentVariable("TEST_DB_PW");
+        var connectionString = $"Host={host};Username={userName};Database={GetType().Name};";
+        if (!string.IsNullOrEmpty(pw))
+        {
+            connectionString += $"Password={pw};";
+        }
+
+        _connectionString = connectionString;
     }
 
     [Fact]
@@ -223,7 +234,7 @@ public class RpcClientTest
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
 #pragma warning disable EF1001
         var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(@"Host=localhost;Username=postgres;Database=test")
+            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
         var context = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
@@ -288,7 +299,7 @@ public class RpcClientTest
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
 #pragma warning disable EF1001
         var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(@"Host=localhost;Username=postgres;Database=test")
+            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
         var context = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
@@ -379,7 +390,7 @@ public class RpcClientTest
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
 #pragma warning disable EF1001
         var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(@"Host=localhost;Username=postgres;Database=test")
+            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
         var context = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001

@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using Libplanet;
 using Libplanet.Crypto;
@@ -31,14 +32,23 @@ public class MarketControllerTest
             ItemSubType = ItemSubType.Armor
         };
 
+        var host = Environment.GetEnvironmentVariable("TEST_DB_HOST") ?? "localhost";
+        var userName = Environment.GetEnvironmentVariable("TEST_DB_USER") ?? "postgres";
+        var pw = Environment.GetEnvironmentVariable("TEST_DB_PW");
+        var connectionString = $"Host={host};Username={userName};Database={GetType().Name};";
+        if (!string.IsNullOrEmpty(pw))
+        {
+            connectionString += $"Password={pw};";
+        }
+
         var context = new MarketContext(new DbContextOptionsBuilder<MarketContext>()
-            .UseNpgsql($@"Host=localhost;Username=postgres;Database={GetType().Name}").UseLowerCaseNamingConvention()
+            .UseNpgsql(connectionString).UseLowerCaseNamingConvention()
             .Options);
-        context.Database.EnsureDeleted();
-        context.Database.EnsureCreated();
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.EnsureCreatedAsync();
         context.Products.Add(product);
         Assert.True(product.Exist);
-        context.SaveChanges();
+        await context.SaveChangesAsync();
         var cache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = null,
@@ -56,6 +66,6 @@ public class MarketControllerTest
         var json2 = JsonSerializer.Serialize(response);
         var des2 = JsonSerializer.Deserialize<MarketProductResponse>(json2);
         Assert.NotEmpty(des2.ItemProducts);
-        context.Database.EnsureDeleted();
+        await context.Database.EnsureDeletedAsync();
     }
 }

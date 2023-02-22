@@ -1,4 +1,7 @@
-on: push
+on:
+  push:
+    branches:
+      - main
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:

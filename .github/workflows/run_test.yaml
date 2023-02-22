@@ -1,0 +1,48 @@
+name: run_test
+
+on: [push, pull_request]
+
+jobs:
+  build-and-tests:
+    runs-on: ubuntu-latest
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.TEST_DB_PW }}
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.*
+      - name: Install dependencies
+        run: dotnet restore
+      - uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget
+      - name: Build and test
+        env:
+          TEST_DB_HOST: localhost
+          TEST_DB_USER: ${{ secrets.TEST_DB_USER }}
+          TEST_DB_PW: ${{ secrets.TEST_DB_PW }}
+        run: |
+          dotnet test --configuration Release --no-restore --verbosity normal
