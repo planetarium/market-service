@@ -52,12 +52,13 @@ public class ShopWorker : BackgroundService
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
+            var costumeStatSheet = await _rpcClient.GetCostumeStatSheet(hashBytes);
             foreach (var itemSubType in itemSubTypes)
             {
                 try
                 {
                     await _rpcClient.SyncOrder(itemSubType, hashBytes, crystalEquipmentGrindingSheet,
-                        crystalMonsterCollectionMultiplierSheet);
+                        crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
                 }
                 catch (Exception e)
                 {

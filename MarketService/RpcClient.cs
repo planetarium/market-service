@@ -15,7 +15,6 @@ using Microsoft.Extensions.Options;
 using Nekoyume;
 using Nekoyume.Action;
 using Nekoyume.Battle;
-using Nekoyume.Helper;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
@@ -105,7 +104,7 @@ public class RpcClient
 
     public async Task SyncOrder(ItemSubType itemSubType, byte[] hashBytes,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
     {
         while (!Init) await Task.Delay(100);
 
@@ -144,7 +143,7 @@ public class RpcClient
             sw.Restart();
             // var purchasedIds = GetOrderPurchasedIds(deletedIds, hashBytes);
             await InsertOrders(itemSubType, hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
-                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
             sw.Stop();
             _logger.LogInformation("InsertOrders: {Ts}", sw.Elapsed);
             sw.Restart();
@@ -162,7 +161,7 @@ public class RpcClient
         List<Guid> tradableIds,
         MarketContext marketContext, List<OrderDigest> orderDigestList,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -194,67 +193,7 @@ public class RpcClient
                 Exist = true,
                 Legacy = true
             };
-            if (item is ItemUsable itemUsable)
-            {
-                var map = itemUsable.StatsMap;
-                var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
-                {
-                    Additional = true,
-                    Type = s.statType,
-                    Value = s.additionalValue
-                });
-                var baseStats = map.GetBaseStats(true).Select(s => new StatModel
-                {
-                    Additional = false,
-                    Type = s.statType,
-                    Value = s.baseValue
-                });
-                var stats = new List<StatModel>();
-                stats.AddRange(additionalStats);
-                stats.AddRange(baseStats);
-                itemProduct.Stats = stats;
-            }
-
-            if (item is Equipment equipment)
-            {
-                itemProduct.ElementalType = equipment.ElementalType;
-                itemProduct.SetId = equipment.SetId;
-                itemProduct.CombatPoint = orderDigest.CombatPoint;
-                itemProduct.Level = equipment.level;
-                itemProduct.Grade = equipment.Grade;
-                var skillModels = new List<SkillModel>();
-                skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                skillModels.AddRange(equipment.BuffSkills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                itemProduct.Skills = skillModels;
-                var crystal = CrystalCalculator.CalculateCrystal(
-                    new[] {equipment},
-                    false,
-                    crystalEquipmentGrindingSheet,
-                    crystalMonsterCollectionMultiplierSheet,
-                    0);
-                itemProduct.Crystal = (int) crystal.MajorUnit;
-                itemProduct.CrystalPerPrice = (int) crystal
-                    .DivRem(orderDigest.Price.MajorUnit).Quotient.MajorUnit;
-            }
-
+            itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             list.Add(itemProduct);
         }
 
@@ -355,7 +294,7 @@ public class RpcClient
     {
         var marketContext = await _contextFactory.CreateDbContextAsync();
         var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy).Select(p => p.ProductId);
-        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId));
+        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId)).ToList();
         var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
         var favProducts = filteredProducts.OfType<FavProduct>().ToList();
         var list = new List<ProductModel>();
@@ -379,66 +318,8 @@ public class RpcClient
 #pragma warning restore CS0618
                 Exist = true
             };
-            if (item is ItemUsable itemUsable)
-            {
-                var map = itemUsable.StatsMap;
-                var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
-                {
-                    Additional = true,
-                    Type = s.statType,
-                    Value = s.additionalValue
-                });
-                var baseStats = map.GetBaseStats(true).Select(s => new StatModel
-                {
-                    Additional = false,
-                    Type = s.statType,
-                    Value = s.baseValue
-                });
-                var stats = new List<StatModel>();
-                stats.AddRange(additionalStats);
-                stats.AddRange(baseStats);
-                itemProductModel.Stats = stats;
-            }
 
-            if (item is Equipment equipment)
-            {
-                itemProductModel.ElementalType = equipment.ElementalType;
-                itemProductModel.SetId = equipment.SetId;
-                itemProductModel.Level = equipment.level;
-                itemProductModel.Grade = equipment.Grade;
-                var skillModels = new List<SkillModel>();
-                skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                skillModels.AddRange(equipment.BuffSkills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                itemProductModel.Skills = skillModels;
-                var crystal = CrystalCalculator.CalculateCrystal(
-                    new[] {equipment},
-                    false,
-                    crystalEquipmentGrindingSheet,
-                    crystalMonsterCollectionMultiplierSheet,
-                    0);
-                itemProductModel.Crystal = (int) crystal.MajorUnit;
-                itemProductModel.CrystalPerPrice = (int) crystal
-                    .DivRem(itemProduct.Price.MajorUnit).Quotient.MajorUnit;
-            }
-
+            itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             list.Add(itemProductModel);
         }
 

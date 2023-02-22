@@ -34,6 +34,8 @@ public class RpcClientTest
 {
     private readonly CrystalEquipmentGrindingSheet _crystalEquipmentGrindingSheet;
     private readonly CrystalMonsterCollectionMultiplierSheet _crystalMonsterCollectionMultiplierSheet;
+    private readonly CostumeItemSheet _costumeItemSheet;
+    private readonly CostumeStatSheet _costumeStatSheet;
     private readonly EquipmentItemSheet.Row _row;
     private readonly TestService _testService;
     private readonly string _connectionString;
@@ -215,6 +217,7 @@ public class RpcClientTest
 3,100
 4,200
 5,300");
+
         var host = Environment.GetEnvironmentVariable("TEST_DB_HOST") ?? "localhost";
         var userName = Environment.GetEnvironmentVariable("TEST_DB_USER") ?? "postgres";
         var pw = Environment.GetEnvironmentVariable("TEST_DB_PW");
@@ -225,10 +228,94 @@ public class RpcClientTest
         }
 
         _connectionString = connectionString;
+        _costumeStatSheet = new CostumeStatSheet();
+        _costumeStatSheet.Set(@"id,costume_id,stat_type,stat
+1,40100000,ATK,30
+2,40100001,DEF,15
+3,40100002,HIT,135
+4,40100003,ATK,60
+5,40100003,HIT,135
+6,40100005,ATK,35
+7,40100006,ATK,55
+8,40100006,SPD,100
+9,49900001,HP,300
+10,49900002,HP,450
+11,49900003,HP,450
+12,49900003,DEF,20
+13,49900004,ATK,40
+14,49900005,ATK,80
+15,49900005,HIT,150
+16,49900006,HIT,120
+17,40100007,DEF,10
+18,40100007,HIT,150
+19,40100009,SPD,80
+20,40100009,ATK,65
+21,40100008,ATK,35
+22,49900007,HP,5000
+23,49900008,DEF,320
+24,40100010,ATK,530
+25,49900009,HIT,1210");
+        _costumeItemSheet = new CostumeItemSheet();
+        _costumeItemSheet.Set(@"id,_name,item_sub_type,grade,elemental_type,spine_resource_path
+40100000,발키리,FullCostume,4,Normal,
+40100001,새벽의 사자,FullCostume,3,Normal,
+40100002,헬라의 환영,FullCostume,5,Normal,
+40100003,어둠의 발키리,FullCostume,5,Normal,
+40100004,천상의 고양이,FullCostume,2,Normal,
+40100005,창술사 루이,FullCostume,4,Normal,
+40100006,창술사 루시,FullCostume,5,Normal,
+40100007,백마법사 아라엘,FullCostume,5,Normal,
+40100008,마법사 릴리,FullCostume,4,Normal,
+40100009,흑마법사 이블리,FullCostume,5,Normal,
+40100010,도끼 여전사 퓨리오사,FullCostume,5,Normal,
+40200001,갈색 머리카락,HairCostume,1,Normal,
+40200002,파란색 머리카락,HairCostume,1,Normal,
+40200003,초록색 머리카락,HairCostume,1,Normal,
+40200004,빨간색 머리카락,HairCostume,1,Normal,
+40200005,흰색 머리카락,HairCostume,1,Normal,
+40200006,노란색 머리카락,HairCostume,1,Normal,
+40200007,검은색 머리카락,HairCostume,1,Normal,
+40300001,갈색 귀,EarCostume,1,Normal,
+40300002,검은색 귀,EarCostume,1,Normal,
+40300003,갈색 표범 무늬 귀,EarCostume,1,Normal,
+40300004,회색 표범 무늬 귀,EarCostume,1,Normal,
+40300005,흰색 귀,EarCostume,1,Normal,
+40300006,검붉은색 귀,EarCostume,1,Normal,
+40300007,흰털 갈색 귀,EarCostume,1,Normal,
+40300008,흰털 파란색 귀,EarCostume,1,Normal,
+40300009,흰털 회색 귀,EarCostume,1,Normal,
+40300010,흰털 파란 유령 귀,EarCostume,1,Normal,
+40400001,빨간색 눈,EyeCostume,1,Normal,
+40400002,파란색 눈,EyeCostume,1,Normal,
+40400003,초록색 눈,EyeCostume,1,Normal,
+40400004,보라색 눈,EyeCostume,1,Normal,
+40400005,흰색 눈,EyeCostume,1,Normal,
+40400006,노란색 눈,EyeCostume,1,Normal,
+40500001,꼬리,TailCostume,1,Normal,
+40500002,검흰색 꼬리,TailCostume,1,Normal,
+40500003,갈색 표범 무늬 꼬리,TailCostume,1,Normal,
+40500004,회색 표범 무늬 꼬리,TailCostume,1,Normal,
+40500005,흰색 꼬리,TailCostume,1,Normal,
+40500006,검은색 꼬리,TailCostume,1,Normal,
+40500007,빨간색 꼬리,TailCostume,1,Normal,
+40500008,파란색 꼬리,TailCostume,1,Normal,
+40500009,회색 꼬리,TailCostume,1,Normal,
+40500010,파란 유령 꼬리,TailCostume,1,Normal,
+49900001,전설의 모험가,Title,4,Normal,
+49900002,최초의 전사,Title,5,Normal,
+49900003,Yggdrasil Champion,Title,5,Normal,
+49900004,Yggdrasil Challenger,Title,4,Normal,
+49900005,Sushi Frontier,Title,5,Normal,
+49900006,Yggdrasil Warrior,Title,3,Normal,
+49900007,Championship 1 Ranker,Title,5,Normal,
+49900008,Championship 2 Ranker,Title,5,Normal,
+49900009,2022 Grand Finale,Title,3,Normal,");
     }
 
-    [Fact]
-    public async Task SyncOrder_Cancel()
+    [Theory]
+    [InlineData(ItemSubType.Armor)]
+    [InlineData(ItemSubType.FullCostume)]
+    public async Task SyncOrder_Cancel(ItemSubType itemSubType)
     {
         var ct = new CancellationToken();
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
@@ -249,11 +336,22 @@ public class RpcClientTest
         var currency = Currency.Legacy("NCG", 2, null);
 #pragma warning restore CS0618
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
-            ItemSubType.Armor, 1);
+            itemSubType, 1);
         _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(ItemSubType.Armor, order.OrderId);
+        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
         var shopState = new ShardedShopStateV2(shopAddress);
-        var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+        ITradableItem item = null!;
+        if (itemSubType == ItemSubType.Armor)
+        {
+            item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+        }
+
+        if (itemSubType == ItemSubType.FullCostume)
+        {
+            var costumeId = 40100007;
+            var row = _costumeItemSheet.Values.First(r => r.Id == costumeId);
+            item = ItemFactory.CreateCostume(row, order.TradableId);
+        }
         var orderDigest = new OrderDigest(
             agentAddress,
             0L,
@@ -263,7 +361,7 @@ public class RpcClientTest
             order.Price,
             0,
             0,
-            item.Id,
+            ((ItemBase)item).Id,
             1
         );
         shopState.Add(orderDigest, 0L);
@@ -271,17 +369,18 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
-        var productModel = Assert.Single(context.Products);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
+        var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
         Assert.True(productModel.Exist);
+        Assert.True(productModel.Stats.Any());
 
         // Cancel order
         shopState.Remove(order, 1L);
         _testService.SetState(shopAddress, shopState.Serialize());
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
@@ -292,8 +391,9 @@ public class RpcClientTest
         // Buy order
     }
 
-    [Fact]
-    public async Task SyncOrder_ReRegister()
+    [Theory]
+    [InlineData(ItemSubType.Armor)]
+    public async Task SyncOrder_ReRegister(ItemSubType itemSubType)
     {
         var ct = new CancellationToken();
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
@@ -314,9 +414,9 @@ public class RpcClientTest
         var currency = Currency.Legacy("NCG", 2, null);
 #pragma warning restore CS0618
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
-            ItemSubType.Armor, 1);
+            itemSubType, 1);
         _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(ItemSubType.Armor, order.OrderId);
+        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
         var shopState = new ShardedShopStateV2(shopAddress);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         var orderDigest = new OrderDigest(
@@ -336,8 +436,8 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.Products);
         Assert.True(productModel.Legacy);
         Assert.True(productModel.Exist);
@@ -348,8 +448,8 @@ public class RpcClientTest
 
         var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * currency, order.TradableId,
             1L,
-            ItemSubType.Armor, 1);
-        var shopAddress2 = ShardedShopStateV2.DeriveAddress(ItemSubType.Armor, order2.OrderId);
+            itemSubType, 1);
+        var shopAddress2 = ShardedShopStateV2.DeriveAddress(itemSubType, order2.OrderId);
         var shopState2 = new ShardedShopStateV2(shopAddress2);
         var orderDigest2 = new OrderDigest(
             agentAddress,
@@ -367,8 +467,8 @@ public class RpcClientTest
         _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
         _testService.SetState(shopAddress2, shopState2.Serialize());
 
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
@@ -383,8 +483,9 @@ public class RpcClientTest
         // Buy order
     }
 
-    [Fact]
-    public async Task SyncOrder_Buy()
+    [Theory]
+    [InlineData(ItemSubType.Armor)]
+    public async Task SyncOrder_Buy(ItemSubType itemSubType)
     {
         var ct = new CancellationToken();
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
@@ -405,9 +506,9 @@ public class RpcClientTest
         var currency = Currency.Legacy("NCG", 2, null);
 #pragma warning restore CS0618
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
-            ItemSubType.Armor, 1);
+            itemSubType, 1);
         _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(ItemSubType.Armor, order.OrderId);
+        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
         var shopState = new ShardedShopStateV2(shopAddress);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         var orderDigest = new OrderDigest(
@@ -427,8 +528,8 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.Products);
         Assert.True(productModel.Legacy);
         Assert.True(productModel.Exist);
@@ -439,8 +540,8 @@ public class RpcClientTest
 
         var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * currency, order.TradableId,
             1L,
-            ItemSubType.Armor, 1);
-        var shopAddress2 = ShardedShopStateV2.DeriveAddress(ItemSubType.Armor, order2.OrderId);
+            itemSubType, 1);
+        var shopAddress2 = ShardedShopStateV2.DeriveAddress(itemSubType, order2.OrderId);
         var shopState2 = new ShardedShopStateV2(shopAddress2);
         var orderDigest2 = new OrderDigest(
             agentAddress,
@@ -458,8 +559,8 @@ public class RpcClientTest
         _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
         _testService.SetState(shopAddress2, shopState2.Serialize());
 
-        await client.SyncOrder(ItemSubType.Armor, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet);
+        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
