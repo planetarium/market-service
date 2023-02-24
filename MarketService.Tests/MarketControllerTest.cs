@@ -73,7 +73,7 @@ public class MarketControllerTest
         Assert.NotNull(des);
         var json2 = JsonSerializer.Serialize(response);
         var des2 = JsonSerializer.Deserialize<MarketProductResponse>(json2);
-        Assert.NotEmpty(des2.ItemProducts);
+        Assert.NotEmpty(des2!.ItemProducts);
         await _context.Database.EnsureDeletedAsync();
     }
 
@@ -121,16 +121,16 @@ public class MarketControllerTest
 
         var response = await controller.GetProductsById(productIds.ToArray());
         var result = Assert.Single(response.ItemProducts);
-        Assert.True(cache.TryGetValue(product.ProductId, out ItemProductModel cached));
-        Assert.Equal(cached.ProductId, product.ProductId);
+        Assert.True(cache.TryGetValue(product.ProductId, out ItemProductModel? cached));
+        Assert.Equal(cached!.ProductId, product.ProductId);
         Assert.False(cache.TryGetValue(product2.ProductId, out _));
 
         productIds.Add(product2.ProductId);
         var response2 = await controller.GetProductsById(productIds.ToArray());
         Assert.Equal(2, response2.ItemProducts.Count);
         Assert.True(cache.TryGetValue(product.ProductId, out _));
-        Assert.True(cache.TryGetValue(product2.ProductId, out ItemProductModel cached2));
-        Assert.Equal(cached2.ProductId, product2.ProductId);
+        Assert.True(cache.TryGetValue(product2.ProductId, out ItemProductModel? cached2));
+        Assert.Equal(cached2!.ProductId, product2.ProductId);
         await _context.Database.EnsureDeletedAsync();
     }
 }

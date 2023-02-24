@@ -230,7 +230,7 @@ public class RpcClient
             {
                 chainIds.Add(kv.Key);
                 if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
-                if (kv.Value is List deserialized) products.Add(ProductFactory.Deserialize(deserialized));
+                if (kv.Value is List deserialized) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
             // filter ids chain not exist product ids.
             deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));

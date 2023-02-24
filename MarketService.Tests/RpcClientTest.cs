@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
+using Lib9c.Formatters;
 using Lib9c.Model.Order;
 using Libplanet;
 using Libplanet.Action;
@@ -592,7 +593,7 @@ public class RpcClientTest
 
         public TestService()
         {
-            _states = new ActionBase.AccountStateDelta(ImmutableDictionary<Address, IValue>.Empty,
+            _states = new AccountStateDelta(ImmutableDictionary<Address, IValue>.Empty,
                 ImmutableDictionary<(Address, Currency), BigInteger>.Empty,
                 ImmutableDictionary<Currency, BigInteger>.Empty);
         }
