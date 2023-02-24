@@ -58,7 +58,7 @@ public class Startup
         services.AddSingleton<RpcClient>();
         services.AddSingleton<Receiver>();
         services.AddHostedService<ShopWorker>();
-// services.AddHostedService<ProductWorker>();
+        services.AddHostedService<ProductWorker>();
         services.AddMvc()
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }

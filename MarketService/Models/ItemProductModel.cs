@@ -1,9 +1,14 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using Libplanet.Assets;
 using MarketService.Response;
 using MarketService.Response.Interface;
+using Nekoyume.Helper;
 using Nekoyume.Model;
 using Nekoyume.Model.Elemental;
 using Nekoyume.Model.Item;
+using Nekoyume.Model.Stat;
+using Nekoyume.TableData;
+using Nekoyume.TableData.Crystal;
 
 namespace MarketService.Models;
 
@@ -53,5 +58,93 @@ public class ItemProductModel : ProductModel, IItemProductModel
             Crystal = Crystal,
             CrystalPerPrice = CrystalPerPrice,
         };
+    }
+
+    public void Update(ITradableItem tradableItem, FungibleAssetValue price, CostumeStatSheet costumeStatSheet,
+        CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+    {
+        var stats = new List<StatModel>();
+        switch (tradableItem)
+        {
+            case ItemUsable itemUsable:
+            {
+                var map = itemUsable.StatsMap;
+                var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
+                {
+                    Additional = true,
+                    Type = s.statType,
+                    Value = s.additionalValue
+                });
+                var baseStats = map.GetBaseStats(true).Select(s => new StatModel
+                {
+                    Additional = false,
+                    Type = s.statType,
+                    Value = s.baseValue
+                });
+                stats.AddRange(additionalStats);
+                stats.AddRange(baseStats);
+                if (itemUsable is Equipment equipment)
+                {
+                    ElementalType = equipment.ElementalType;
+                    SetId = equipment.SetId;
+                    Level = equipment.level;
+                    Grade = equipment.Grade;
+                    var skillModels = new List<SkillModel>();
+                    skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
+                    {
+                        SkillId = s.SkillRow.Id,
+                        Power = s.Power,
+                        Chance = s.Chance,
+                        ElementalType = s.SkillRow.ElementalType,
+                        SkillCategory = s.SkillRow.SkillCategory,
+                        HitCount = s.SkillRow.HitCount,
+                        Cooldown = s.SkillRow.Cooldown
+                    }));
+                    skillModels.AddRange(equipment.BuffSkills.Select(s => new SkillModel
+                    {
+                        SkillId = s.SkillRow.Id,
+                        Power = s.Power,
+                        Chance = s.Chance,
+                        ElementalType = s.SkillRow.ElementalType,
+                        SkillCategory = s.SkillRow.SkillCategory,
+                        HitCount = s.SkillRow.HitCount,
+                        Cooldown = s.SkillRow.Cooldown
+                    }));
+                    Skills = skillModels;
+                    var crystal = CrystalCalculator.CalculateCrystal(
+                        new[] {equipment},
+                        false,
+                        crystalEquipmentGrindingSheet,
+                        crystalMonsterCollectionMultiplierSheet,
+                        0);
+                    Crystal = (int) crystal.MajorUnit;
+                    CrystalPerPrice = (int) crystal
+                        .DivRem(price.MajorUnit).Quotient.MajorUnit;
+                }
+                break;
+            }
+            case Costume costume:
+            {
+                var statsMap = new StatsMap();
+                foreach (var row in costumeStatSheet.OrderedList!.Where(r => r.CostumeId == costume.Id))
+                {
+                    statsMap.AddStatValue(row.StatType, row.Stat);
+                }
+                var additionalStats = statsMap.GetBaseStats(true).Select(s => new StatModel
+                {
+                    Additional = false,
+                    Type = s.statType,
+                    Value = s.baseValue
+                });
+                stats.AddRange(additionalStats);
+                break;
+            }
+        }
+
+        if (stats.Any())
+        {
+            Stats = stats;
+        }
     }
 }

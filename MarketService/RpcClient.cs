@@ -15,7 +15,6 @@ using Microsoft.Extensions.Options;
 using Nekoyume;
 using Nekoyume.Action;
 using Nekoyume.Battle;
-using Nekoyume.Helper;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
@@ -105,7 +104,7 @@ public class RpcClient
 
     public async Task SyncOrder(ItemSubType itemSubType, byte[] hashBytes,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
     {
         while (!Init) await Task.Delay(100);
 
@@ -144,7 +143,7 @@ public class RpcClient
             sw.Restart();
             // var purchasedIds = GetOrderPurchasedIds(deletedIds, hashBytes);
             await InsertOrders(itemSubType, hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
-                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
             sw.Stop();
             _logger.LogInformation("InsertOrders: {Ts}", sw.Elapsed);
             sw.Restart();
@@ -154,7 +153,7 @@ public class RpcClient
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unexpected exception occurred during RaiderWorker: {Exc}", e);
+            _logger.LogError(e, "Unexpected exception occurred during SyncOrder: {Exc}", e);
         }
     }
 
@@ -162,7 +161,7 @@ public class RpcClient
         List<Guid> tradableIds,
         MarketContext marketContext, List<OrderDigest> orderDigestList,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
     {
         var sw = new Stopwatch();
         sw.Start();
@@ -194,67 +193,7 @@ public class RpcClient
                 Exist = true,
                 Legacy = true
             };
-            if (item is ItemUsable itemUsable)
-            {
-                var map = itemUsable.StatsMap;
-                var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
-                {
-                    Additional = true,
-                    Type = s.statType,
-                    Value = s.additionalValue
-                });
-                var baseStats = map.GetBaseStats(true).Select(s => new StatModel
-                {
-                    Additional = false,
-                    Type = s.statType,
-                    Value = s.baseValue
-                });
-                var stats = new List<StatModel>();
-                stats.AddRange(additionalStats);
-                stats.AddRange(baseStats);
-                itemProduct.Stats = stats;
-            }
-
-            if (item is Equipment equipment)
-            {
-                itemProduct.ElementalType = equipment.ElementalType;
-                itemProduct.SetId = equipment.SetId;
-                itemProduct.CombatPoint = orderDigest.CombatPoint;
-                itemProduct.Level = equipment.level;
-                itemProduct.Grade = equipment.Grade;
-                var skillModels = new List<SkillModel>();
-                skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                skillModels.AddRange(equipment.BuffSkills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                itemProduct.Skills = skillModels;
-                var crystal = CrystalCalculator.CalculateCrystal(
-                    new[] {equipment},
-                    false,
-                    crystalEquipmentGrindingSheet,
-                    crystalMonsterCollectionMultiplierSheet,
-                    0);
-                itemProduct.Crystal = (int) crystal.MajorUnit;
-                itemProduct.CrystalPerPrice = (int) crystal
-                    .DivRem(orderDigest.Price.MajorUnit).Quotient.MajorUnit;
-            }
-
+            itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             list.Add(itemProduct);
         }
 
@@ -269,7 +208,7 @@ public class RpcClient
         _logger.LogInformation($"{itemSubType}: {list.Count}");
     }
 
-    public async Task SyncProduct(byte[] hashBytes)
+    public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         while (!Init) await Task.Delay(100);
 
@@ -277,25 +216,31 @@ public class RpcClient
         {
             var costumeStatSheet = await GetCostumeStatSheet(hashBytes);
             var marketState = await GetMarket(hashBytes);
-            var avatarAddressList = marketState.AvatarAddressList;
+            var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
             var chainIds = new List<Guid>();
             var products = new List<Product>();
             var productStates = await GetProductStates(avatarAddressList, hashBytes);
+            var marketContext = await _contextFactory.CreateDbContextAsync();
+            var existIds = marketContext.Database
+                .SqlQueryRaw<Guid>(
+                    $"Select productid from products where exist = {true} and legacy = {false}")
+                .ToList();
             foreach (var kv in productStates)
             {
                 chainIds.Add(kv.Key);
                 if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
-
                 if (kv.Value is List deserialized) products.Add(ProductFactory.Deserialize(deserialized));
             }
-
-            await InsertProducts(products, costumeStatSheet);
+            // filter ids chain not exist product ids.
+            deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
+            deletedIds = deletedIds.Distinct().ToList();
+            await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             await UpdateProducts(deletedIds, chainIds);
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Unexpected exception occurred during RaiderWorker: {Exc}", e);
+            _logger.LogError(e, "Unexpected exception occurred during SyncProduct: {Exc}", e);
         }
     }
 
@@ -345,14 +290,14 @@ public class RpcClient
         _logger.LogInformation($"UpdateProducts: {targetIds.Count}");
     }
 
-    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet)
+    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var existProductIds = marketContext.Products.AsNoTracking().Select(p => p.ProductId);
-        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId));
+        var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy).Select(p => p.ProductId);
+        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId)).ToList();
         var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
+        var favProducts = filteredProducts.OfType<FavProduct>().ToList();
         var list = new List<ProductModel>();
-        var items = itemProducts.Select(i => i.TradableItem).ToList();
         foreach (var itemProduct in itemProducts)
         {
             var item = (ItemBase) itemProduct.TradableItem;
@@ -373,58 +318,28 @@ public class RpcClient
 #pragma warning restore CS0618
                 Exist = true
             };
-            if (item is ItemUsable itemUsable)
-            {
-                var map = itemUsable.StatsMap;
-                var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
-                {
-                    Additional = true,
-                    Type = s.statType,
-                    Value = s.additionalValue
-                });
-                var baseStats = map.GetBaseStats(true).Select(s => new StatModel
-                {
-                    Additional = false,
-                    Type = s.statType,
-                    Value = s.baseValue
-                });
-                var stats = new List<StatModel>();
-                stats.AddRange(additionalStats);
-                stats.AddRange(baseStats);
-                itemProductModel.Stats = stats;
-            }
 
-            if (item is Equipment equipment)
-            {
-                itemProductModel.ElementalType = equipment.ElementalType;
-                itemProductModel.SetId = equipment.SetId;
-                itemProductModel.Level = equipment.level;
-                itemProductModel.Grade = equipment.Grade;
-                var skillModels = new List<SkillModel>();
-                skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                skillModels.AddRange(equipment.BuffSkills.Select(s => new SkillModel
-                {
-                    SkillId = s.SkillRow.Id,
-                    Power = s.Power,
-                    Chance = s.Chance,
-                    ElementalType = s.SkillRow.ElementalType,
-                    SkillCategory = s.SkillRow.SkillCategory,
-                    HitCount = s.SkillRow.HitCount,
-                    Cooldown = s.SkillRow.Cooldown
-                }));
-                itemProductModel.Skills = skillModels;
-            }
-
+            itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
             list.Add(itemProductModel);
+        }
+
+        foreach (var favProduct in favProducts)
+        {
+            var asset = favProduct.Asset;
+            var favProductModel = new FungibleAssetValueProductModel
+            {
+                SellerAvatarAddress = favProduct.SellerAvatarAddress,
+                DecimalPlaces = asset.Currency.DecimalPlaces,
+                Exist = true,
+                Legacy = false,
+                Price = decimal.Parse(favProduct.Price.GetQuantityString()),
+                ProductId = favProduct.ProductId,
+                Quantity = decimal.Parse(asset.GetQuantityString()),
+                RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
+                SellerAgentAddress = favProduct.SellerAgentAddress,
+                Ticker = asset.Currency.Ticker
+            };
+            list.Add(favProductModel);
         }
 
         await marketContext.Products.AddRangeAsync(list);
@@ -470,10 +385,10 @@ public class RpcClient
     private async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
         byte[] hashBytes)
     {
-        var productListAddresses = avatarAddressList.Select(a => ProductList.DeriveAddress(a).ToByteArray()).ToList();
+        var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
         var productListResult = await GetChunkedStates(productListAddresses, hashBytes);
-        var productLists = GetProductList(productListResult);
-        var productIdList = productLists.SelectMany(p => p.ProductIdList).ToList();
+        var productLists = GetProductsState(productListResult);
+        var productIdList = productLists.SelectMany(p => p.ProductIds).ToList();
         var productIds = new Dictionary<Address, Guid>();
         foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
         var productResult = await GetChunkedStates(productIds.Keys.Select(a => a.ToByteArray()).ToList(), hashBytes);
@@ -487,12 +402,12 @@ public class RpcClient
         return result;
     }
 
-    private List<ProductList> GetProductList(Dictionary<Address, IValue> queryResult)
+    private List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
     {
-        var result = new List<ProductList>();
+        var result = new List<ProductsState>();
         foreach (var kv in queryResult)
             if (kv.Value is List list)
-                result.Add(new ProductList(list));
+                result.Add(new ProductsState(list));
 
         return result;
     }

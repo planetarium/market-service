@@ -3,6 +3,7 @@ using MarketService.Models;
 using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
 
@@ -75,17 +76,19 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/{address}")]
-    public async Task<MarketProductResponse> GetItemProducts(string address)
+    public async Task<MarketProductResponse> GetProducts(string address)
     {
-        if (!_memoryCache.TryGetValue(address, out List<ItemProductModel>? queryResult))
+        if (!_memoryCache.TryGetValue(address, out List<ProductModel>? queryResult))
         {
             var avatarAddress = new Address(address);
-            var query = await _dbContext.ItemProducts
+            var query = await _dbContext.Products
                 .AsNoTracking()
-                .Include(p => p.Skills)
-                .Include(p => p.Stats)
+                .Include(p => ((ItemProductModel)p).Skills)
+                .Include(p => ((ItemProductModel)p).Stats)
                 .Where(p => p.SellerAvatarAddress.Equals(avatarAddress) && p.Exist)
-                .OrderByDescending(p => p.RegisteredBlockIndex).ToListAsync();
+                .OrderByDescending(p => p.RegisteredBlockIndex)
+                .AsSingleQuery()
+                .ToListAsync();
             _memoryCache.Set(address, query, TimeSpan.FromMinutes(1f));
             queryResult = query;
         }
@@ -94,5 +97,32 @@ public class MarketController : ControllerBase
             0,
             0,
             queryResult);
+    }
+
+    [HttpGet("products/fav/{ticker}")]
+    public async Task<MarketProductResponse> GetFavProducts(string ticker, int? limit, int? offset)
+    {
+        var queryOffset = offset ?? 0;
+        var queryLimit = limit ?? 100;
+        var cacheKey = $"{ticker}_{queryLimit}_{queryOffset}";
+        if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
+        {
+            var query = await _dbContext.FungibleAssetValueProducts
+                .AsNoTracking()
+                .Where(p => p.Ticker == ticker && p.Exist)
+                .OrderByDescending(p => p.RegisteredBlockIndex)
+                .ThenByDescending(p => p.Quantity)
+                .AsSingleQuery()
+                .ToListAsync();
+            _memoryCache.Set(cacheKey, query, TimeSpan.FromMinutes(1f));
+            queryResult = query;
+        }
+        return new MarketProductResponse(
+            queryResult!.Count,
+            0,
+            0,
+            queryResult
+                .Skip(queryOffset)
+                .Take(queryLimit));
     }
 }
