@@ -125,4 +125,41 @@ public class MarketController : ControllerBase
                 .Skip(queryOffset)
                 .Take(queryLimit));
     }
+
+    [HttpGet("products")]
+    public async Task<MarketProductResponse> GetProductsById([FromQuery] Guid[] productIds)
+    {
+        var result = new List<ProductModel>();
+        var filteredProductIds = new List<Guid>();
+        foreach (var productId in productIds)
+        {
+            if (_memoryCache.TryGetValue(productId, out ProductModel? cached))
+            {
+                result.Add(cached!);
+            }
+            else
+            {
+                filteredProductIds.Add(productId);
+            }
+        }
+
+        if (filteredProductIds.Any())
+        {
+            var query = await _dbContext.Products
+                .AsNoTracking()
+                .Include(p => ((ItemProductModel)p).Skills)
+                .Include(p => ((ItemProductModel)p).Stats)
+                .Where(p => filteredProductIds.Contains(p.ProductId))
+                .OrderByDescending(p => p.RegisteredBlockIndex)
+                .AsSingleQuery()
+                .ToListAsync();
+            foreach (var productModel in query)
+            {
+                _memoryCache.Set(productModel.ProductId, productModel, TimeSpan.FromSeconds(30f));
+            }
+            result.AddRange(query);
+        }
+
+        return new MarketProductResponse(result.Count, 0, 0, result);
+    }
 }
