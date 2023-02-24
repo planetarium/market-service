@@ -8,9 +8,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="MagicOnion.Server" Version="5.0.3"/>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0"/>
-        <PackageReference Include="xunit" Version="2.4.1"/>
+        <PackageReference Include="MagicOnion.Server" Version="5.0.3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+        <PackageReference Include="xunit" Version="2.4.1" />
         <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
@@ -22,7 +22,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\MarketService\MarketService.csproj"/>
+        <ProjectReference Include="..\lib9c\Lib9c.MessagePack\Lib9c.MessagePack.csproj" />
+        <ProjectReference Include="..\MarketService\MarketService.csproj" />
     </ItemGroup>
 
 </Project>
