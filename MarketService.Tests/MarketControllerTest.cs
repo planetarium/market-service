@@ -45,7 +45,7 @@ public class MarketControllerTest
         {
             SellerAgentAddress = new PrivateKey().ToAddress(),
             Quantity = 2,
-            Price = decimal.Parse(productPrice.GetQuantityString()),
+            Price = (int) productPrice.MajorUnit,
             SellerAvatarAddress = new PrivateKey().ToAddress(),
             ItemId = 3,
             Exist = true,
@@ -85,7 +85,7 @@ public class MarketControllerTest
         {
             SellerAgentAddress = new PrivateKey().ToAddress(),
             Quantity = 2,
-            Price = decimal.Parse(productPrice.GetQuantityString()),
+            Price = (int) productPrice.MajorUnit,
             SellerAvatarAddress = new PrivateKey().ToAddress(),
             ItemId = 3,
             Exist = true,
@@ -96,7 +96,7 @@ public class MarketControllerTest
         {
             SellerAgentAddress = new PrivateKey().ToAddress(),
             Quantity = 2,
-            Price = decimal.Parse(productPrice.GetQuantityString()),
+            Price = (int) productPrice.MajorUnit,
             SellerAvatarAddress = new PrivateKey().ToAddress(),
             ItemId = 3,
             Exist = true,
@@ -122,6 +122,7 @@ public class MarketControllerTest
         var response = await controller.GetProductsById(productIds.ToArray());
         var result = Assert.Single(response.ItemProducts);
         Assert.True(cache.TryGetValue(product.ProductId, out ItemProductModel? cached));
+        Assert.Equal(result.ProductId, product.ProductId);
         Assert.Equal(cached!.ProductId, product.ProductId);
         Assert.False(cache.TryGetValue(product2.ProductId, out _));
 
