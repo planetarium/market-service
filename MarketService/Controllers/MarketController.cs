@@ -16,6 +16,7 @@ public class MarketController : ControllerBase
     private readonly MarketContext _dbContext;
     private readonly ILogger<MarketController> _logger;
     private readonly IMemoryCache _memoryCache;
+    private readonly TimeSpan _cacheTime = TimeSpan.FromSeconds(3f);
 
     public MarketController(ILogger<MarketController> logger, MarketContext marketContext, IMemoryCache memoryCache)
     {
@@ -68,7 +69,7 @@ public class MarketController : ControllerBase
                 _ => query
             };
             var result = await query.ToListAsync();
-            _memoryCache.Set(cacheKey, result, TimeSpan.FromMinutes(1f));
+            _memoryCache.Set(cacheKey, result, _cacheTime);
             queryResult = result;
         }
 
@@ -89,7 +90,7 @@ public class MarketController : ControllerBase
                 .OrderByDescending(p => p.RegisteredBlockIndex)
                 .AsSingleQuery()
                 .ToListAsync();
-            _memoryCache.Set(address, query, TimeSpan.FromMinutes(1f));
+            _memoryCache.Set(address, query, _cacheTime);
             queryResult = query;
         }
         return new MarketProductResponse(
@@ -114,7 +115,7 @@ public class MarketController : ControllerBase
                 .ThenByDescending(p => p.Quantity)
                 .AsSingleQuery()
                 .ToListAsync();
-            _memoryCache.Set(cacheKey, query, TimeSpan.FromMinutes(1f));
+            _memoryCache.Set(cacheKey, query, _cacheTime);
             queryResult = query;
         }
         return new MarketProductResponse(
@@ -155,7 +156,7 @@ public class MarketController : ControllerBase
                 .ToListAsync();
             foreach (var productModel in query)
             {
-                _memoryCache.Set(productModel.ProductId, productModel, TimeSpan.FromSeconds(30f));
+                _memoryCache.Set(productModel.ProductId, productModel, _cacheTime);
             }
             result.AddRange(query);
         }
