@@ -23,6 +23,13 @@ internal static class Program
     public static IHostBuilder CreateHostBuilder(string[] args)
     {
         return Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration((_, configuration) =>
+            {
+                IConfiguration configurationRoot = configuration.Build();
+                RpcConfigOptions options = new();
+                configurationRoot.GetSection(RpcConfigOptions.RpcConfig)
+                    .Bind(options);
+            })
             .ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
     }
 }
@@ -31,8 +38,6 @@ public class Startup
 {
     public Startup(IConfiguration configuration)
     {
-        var connectionString = $"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}";
-        Console.WriteLine($"Startup connectionString: {connectionString}");
         Configuration = configuration;
     }
 
@@ -40,8 +45,6 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-        var connectionString = $"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}";
-        Console.WriteLine($"connectionString: {connectionString}");
 // Add services to the container.
         services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -51,7 +54,7 @@ public class Startup
             Configuration.GetSection(RpcConfigOptions.RpcConfig));
         services.AddDbContextFactory<MarketContext>(options =>
             options
-                .UseNpgsql(connectionString)
+                .UseNpgsql(Configuration.GetConnectionString("MARKET"))
                 .UseLowerCaseNamingConvention()
                 .ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))
         );
@@ -63,11 +66,6 @@ public class Startup
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
             );
-        services.AddDbContextFactory<MarketContext>(options =>
-            options
-                .UseNpgsql($"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}")
-                .UseLowerCaseNamingConvention()
-        );
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
