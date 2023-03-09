@@ -370,7 +370,11 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+        var orderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        Assert.Single(orderDigestList);
+        var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
+        Assert.Single(chainIds);
+        await client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
@@ -380,7 +384,11 @@ public class RpcClientTest
         // Cancel order
         shopState.Remove(order, 1L);
         _testService.SetState(shopAddress, shopState.Serialize());
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+        var newOrderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        Assert.Empty(newOrderDigestList);
+        var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
+        Assert.Empty(newChainIds);
+        await client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await contextFactory.CreateDbContextAsync(ct);
@@ -437,7 +445,11 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+        var orderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        Assert.Single(orderDigestList);
+        var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
+        Assert.Single(chainIds);
+        await client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.Products);
         Assert.True(productModel.Legacy);
@@ -468,99 +480,11 @@ public class RpcClientTest
         _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
         _testService.SetState(shopAddress2, shopState2.Serialize());
 
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
-#pragma warning disable EF1001
-        var nextContext = await contextFactory.CreateDbContextAsync(ct);
-#pragma warning restore EF1001
-        Assert.Equal(2, nextContext.Products.Count());
-        var oldProduct = nextContext.Products.Single(p => p.ProductId == order.OrderId);
-        Assert.Equal(1, oldProduct.Price);
-        Assert.False(oldProduct.Exist);
-        var newProduct = nextContext.Products.Single(p => p.ProductId == order2.OrderId);
-        Assert.Equal(2, newProduct.Price);
-        Assert.True(newProduct.Exist);
-
-        // Buy order
-    }
-
-    [Theory]
-    [InlineData(ItemSubType.Armor)]
-    public async Task SyncOrder_Buy(ItemSubType itemSubType)
-    {
-        var ct = new CancellationToken();
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
-#pragma warning disable EF1001
-        var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
-                .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
-        var context = await contextFactory.CreateDbContextAsync(ct);
-#pragma warning restore EF1001
-        await context.Database.EnsureDeletedAsync(ct);
-        await context.Database.EnsureCreatedAsync(ct);
-        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
-        var client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            new Logger<RpcClient>(new LoggerFactory()), receiver, contextFactory, _testService);
-        var agentAddress = new PrivateKey().ToAddress();
-        var avatarAddress = new PrivateKey().ToAddress();
-#pragma warning disable CS0618
-        var currency = Currency.Legacy("NCG", 2, null);
-#pragma warning restore CS0618
-        var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
-            itemSubType, 1);
-        _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
-        var shopState = new ShardedShopStateV2(shopAddress);
-        var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
-        var orderDigest = new OrderDigest(
-            agentAddress,
-            0L,
-            Order.ExpirationInterval,
-            order.OrderId,
-            order.TradableId,
-            order.Price,
-            0,
-            0,
-            item.Id,
-            1
-        );
-        shopState.Add(orderDigest, 0L);
-        _testService.SetState(shopAddress, shopState.Serialize());
-        _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
-
-        // Insert order
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
-            _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
-        var productModel = Assert.Single(context.Products);
-        Assert.True(productModel.Legacy);
-        Assert.True(productModel.Exist);
-
-        // ReRegister order
-        shopState.Remove(order, 1L);
-        _testService.SetState(shopAddress, shopState.Serialize());
-
-        var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * currency, order.TradableId,
-            1L,
-            itemSubType, 1);
-        var shopAddress2 = ShardedShopStateV2.DeriveAddress(itemSubType, order2.OrderId);
-        var shopState2 = new ShardedShopStateV2(shopAddress2);
-        var orderDigest2 = new OrderDigest(
-            agentAddress,
-            1L,
-            Order.ExpirationInterval + 1L,
-            order2.OrderId,
-            order2.TradableId,
-            order2.Price,
-            0,
-            0,
-            item.Id,
-            1
-        );
-        shopState2.Add(orderDigest2, 1L);
-        _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
-        _testService.SetState(shopAddress2, shopState2.Serialize());
-
-        await client.SyncOrder(itemSubType, null!, _crystalEquipmentGrindingSheet,
+        var newOrderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        Assert.Single(newOrderDigestList);
+        var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
+        Assert.Single(newChainIds);
+        await client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await contextFactory.CreateDbContextAsync(ct);
