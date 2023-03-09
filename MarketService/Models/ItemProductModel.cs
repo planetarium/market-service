@@ -112,15 +112,23 @@ public class ItemProductModel : ProductModel, IItemProductModel
                         Cooldown = s.SkillRow.Cooldown
                     }));
                     Skills = skillModels;
-                    var crystal = CrystalCalculator.CalculateCrystal(
-                        new[] {equipment},
-                        false,
-                        crystalEquipmentGrindingSheet,
-                        crystalMonsterCollectionMultiplierSheet,
-                        0);
-                    Crystal = (int) crystal.MajorUnit;
-                    CrystalPerPrice = (int) crystal
-                        .DivRem(price.MajorUnit).Quotient.MajorUnit;
+                    try
+                    {
+                        var crystal = CrystalCalculator.CalculateCrystal(
+                            new[] {equipment},
+                            false,
+                            crystalEquipmentGrindingSheet,
+                            crystalMonsterCollectionMultiplierSheet,
+                            0);
+                        Crystal = (int) crystal.MajorUnit;
+                        CrystalPerPrice = (int) crystal
+                            .DivRem(price.MajorUnit).Quotient.MajorUnit;
+                    }
+                    catch (KeyNotFoundException)
+                    {
+                        CrystalPerPrice = 0;
+                        Crystal = 0;
+                    }
                 }
                 break;
             }
