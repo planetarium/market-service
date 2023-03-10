@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Lib9c.Model.Order;
 using Nekoyume.Model.Item;
+using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 
 namespace MarketService;
@@ -58,7 +59,7 @@ public class ShopWorker : BackgroundService
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
-            var costumeStatSheet = await _rpcClient.GetCostumeStatSheet(hashBytes);
+            var costumeStatSheet = await _rpcClient.GetSheet<CostumeStatSheet>(hashBytes);
             var chainIds = new ConcurrentBag<Guid>();
             var orderDigestList = new ConcurrentBag<OrderDigest>();
             await Parallel.ForEachAsync(itemSubTypes, parallelOptions, async (itemSubType, st) =>

@@ -237,13 +237,13 @@ public class RpcClient
     }
 
     public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
+        CostumeStatSheet costumeStatSheet)
     {
         while (!Init) await Task.Delay(100);
 
         try
         {
-            var costumeStatSheet = await GetCostumeStatSheet(hashBytes);
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
@@ -355,20 +355,6 @@ public class RpcClient
 
         await marketContext.Products.AddRangeAsync(list);
         await marketContext.SaveChangesAsync();
-    }
-
-    public async Task<CostumeStatSheet> GetCostumeStatSheet(byte[] hashBytes)
-    {
-        var sheetAddress = Addresses.GetSheetAddress<CostumeStatSheet>();
-        var result = await Service.GetState(sheetAddress.ToByteArray(), hashBytes);
-        if (_codec.Decode(result) is Text t)
-        {
-            var sheet = new CostumeStatSheet();
-            sheet.Set(t);
-            return sheet;
-        }
-
-        throw new Exception();
     }
 
     public async Task<T> GetSheet<T>(byte[] hashBytes) where T : ISheet, new()

@@ -1,3 +1,4 @@
+using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 
 namespace MarketService;
@@ -34,7 +35,8 @@ public class ProductWorker : BackgroundService
                 var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
                 var crystalMonsterCollectionMultiplierSheet =
                     await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
-                await _rpcClient.SyncProduct(hashBytes, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                var costumeStatSheet = await _rpcClient.GetSheet<CostumeStatSheet>(hashBytes);
+                await _rpcClient.SyncProduct(hashBytes, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
             }
             catch (Exception e)
             {
