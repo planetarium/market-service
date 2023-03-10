@@ -184,7 +184,7 @@ public class RpcClient
         await marketContext.Database.CommitTransactionAsync();
     }
 
-    private async Task InsertOrders(byte[] hashBytes, List<Guid> orderIds, List<Guid> tradableIds,
+    public async Task InsertOrders(byte[] hashBytes, List<Guid> orderIds, List<Guid> tradableIds,
         MarketContext marketContext, List<OrderDigest> orderDigestList,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
@@ -250,7 +250,7 @@ public class RpcClient
             {
                 chainIds.Add(kv.Key);
                 if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
-                if (kv.Value is List deserialized) products.Add(ProductFactory.DeserializeProduct(deserialized));
+                if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
 
             // filter ids chain not exist product ids.
@@ -266,63 +266,66 @@ public class RpcClient
         }
     }
 
-    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
+    public async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy)
-            .Select(p => p.ProductId);
-        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId)).ToList();
-        var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
-        var favProducts = filteredProducts.OfType<FavProduct>().ToList();
-        var list = new List<ProductModel>();
-        foreach (var itemProduct in itemProducts)
-        {
-            var item = (ItemBase) itemProduct.TradableItem;
-            var itemProductModel = new ItemProductModel
+        var itemProducts = products.OfType<ItemProduct>().ToList();
+        var favProducts = products.OfType<FavProduct>().ToList();
+        var productBag = new ConcurrentBag<ProductModel>();
+        itemProducts
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(itemProduct =>
             {
-                ProductId = itemProduct.ProductId,
-                SellerAgentAddress = itemProduct.SellerAgentAddress,
-                SellerAvatarAddress = itemProduct.SellerAvatarAddress,
-                Quantity = itemProduct.ItemCount,
-                ItemId = item.Id,
-                Price = decimal.Parse(itemProduct.Price.GetQuantityString()),
-                ItemType = item.ItemType,
-                ItemSubType = item.ItemSubType,
-                TradableId = itemProduct.TradableItem.TradableId,
-                RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
+                var item = (ItemBase) itemProduct.TradableItem;
+                var itemProductModel = new ItemProductModel
+                {
+                    ProductId = itemProduct.ProductId,
+                    SellerAgentAddress = itemProduct.SellerAgentAddress,
+                    SellerAvatarAddress = itemProduct.SellerAvatarAddress,
+                    Quantity = itemProduct.ItemCount,
+                    ItemId = item.Id,
+                    Price = decimal.Parse(itemProduct.Price.GetQuantityString()),
+                    ItemType = item.ItemType,
+                    ItemSubType = item.ItemSubType,
+                    TradableId = itemProduct.TradableItem.TradableId,
+                    RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
 #pragma warning disable CS0618
-                CombatPoint = CPHelper.GetCP(itemProduct.TradableItem, costumeStatSheet),
+                    CombatPoint = CPHelper.GetCP(itemProduct.TradableItem, costumeStatSheet),
 #pragma warning restore CS0618
-                Exist = true
-            };
+                    Exist = true
+                };
 
-            itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
-                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
-            list.Add(itemProductModel);
-        }
+                itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
+                    crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                productBag.Add(itemProductModel);
+            });
 
-        foreach (var favProduct in favProducts)
-        {
-            var asset = favProduct.Asset;
-            var favProductModel = new FungibleAssetValueProductModel
+        favProducts
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(favProduct =>
             {
-                SellerAvatarAddress = favProduct.SellerAvatarAddress,
-                DecimalPlaces = asset.Currency.DecimalPlaces,
-                Exist = true,
-                Legacy = false,
-                Price = decimal.Parse(favProduct.Price.GetQuantityString()),
-                ProductId = favProduct.ProductId,
-                Quantity = decimal.Parse(asset.GetQuantityString()),
-                RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
-                SellerAgentAddress = favProduct.SellerAgentAddress,
-                Ticker = asset.Currency.Ticker
-            };
-            list.Add(favProductModel);
-        }
+                var asset = favProduct.Asset;
+                var favProductModel = new FungibleAssetValueProductModel
+                {
+                    SellerAvatarAddress = favProduct.SellerAvatarAddress,
+                    DecimalPlaces = asset.Currency.DecimalPlaces,
+                    Exist = true,
+                    Legacy = false,
+                    Price = decimal.Parse(favProduct.Price.GetQuantityString()),
+                    ProductId = favProduct.ProductId,
+                    Quantity = decimal.Parse(asset.GetQuantityString()),
+                    RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
+                    SellerAgentAddress = favProduct.SellerAgentAddress,
+                    Ticker = asset.Currency.Ticker
+                };
+                productBag.Add(favProductModel);
+            });
 
-        await marketContext.Products.AddRangeAsync(list);
+        await marketContext.Products.AddRangeAsync(productBag.ToList());
         await marketContext.SaveChangesAsync();
     }
 
@@ -348,7 +351,7 @@ public class RpcClient
         return block.Hash.ToByteArray();
     }
 
-    private async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
+    public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
         byte[] hashBytes)
     {
         var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
@@ -368,7 +371,7 @@ public class RpcClient
         return result;
     }
 
-    private List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
+    public List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
     {
         var result = new List<ProductsState>();
         foreach (var kv in queryResult)
@@ -378,7 +381,7 @@ public class RpcClient
         return result;
     }
 
-    private IEnumerable<byte[]> GetShopAddress(ItemSubType itemSubType)
+    public IEnumerable<byte[]> GetShopAddress(ItemSubType itemSubType)
     {
         if (ShardedSubTypes.Contains(itemSubType))
         {
@@ -390,7 +393,7 @@ public class RpcClient
         return new[] {ShardedShopStateV2.DeriveAddress(itemSubType, "").ToByteArray()};
     }
 
-    private IEnumerable<ShardedShopStateV2> GetShopStates(Dictionary<byte[], byte[]> queryResult)
+    public IEnumerable<ShardedShopStateV2> GetShopStates(Dictionary<byte[], byte[]> queryResult)
     {
         var result = new List<ShardedShopStateV2>();
         foreach (var kv in queryResult)
@@ -402,7 +405,7 @@ public class RpcClient
         return result;
     }
 
-    private async Task<List<Order>> GetOrders(IEnumerable<Guid> orderIds, byte[] hashBytes)
+    public async Task<List<Order>> GetOrders(IEnumerable<Guid> orderIds, byte[] hashBytes)
     {
         var orderAddressList = orderIds.Select(i => Order.DeriveAddress(i).ToByteArray()).ToList();
         var chunks = orderAddressList
@@ -424,7 +427,7 @@ public class RpcClient
         return orderBag.ToList();
     }
 
-    private async Task<List<ItemBase>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
+    public async Task<List<ItemBase>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
     {
         var itemAddressList = tradableIds.Select(i => Addresses.GetItemAddress(i).ToByteArray()).ToList();
         var chunks = itemAddressList
@@ -445,22 +448,21 @@ public class RpcClient
         return itemBag.ToList();
     }
 
-    private async Task<Dictionary<Address, IValue>> GetStates(List<byte[]> addressList, byte[] hashBytes)
+    public async Task<Dictionary<Address, IValue>> GetStates(List<byte[]> addressList, byte[] hashBytes)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
         var queryResult = await Service.GetStateBulk(addressList, hashBytes);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
-            .All(kv =>
+            .ForAll(kv =>
             {
                 result.TryAdd(new Address(kv.Key), _codec.Decode(kv.Value));
-                return true;
             });
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
-    private async Task<Dictionary<Address, IValue>> GetChunkedStates(List<byte[]> addressList, byte[] hashBytes)
+    public async Task<Dictionary<Address, IValue>> GetChunkedStates(List<byte[]> addressList, byte[] hashBytes)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
         var chunks = addressList
@@ -477,7 +479,7 @@ public class RpcClient
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
-    private async Task<MarketState> GetMarket(byte[] hashBytes)
+    public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
         var marketResult = await Service.GetState(Addresses.Market.ToByteArray(), hashBytes);
         var value = _codec.Decode(marketResult);

@@ -492,8 +492,166 @@ public class RpcClientTest
         var newProduct = nextContext.Products.Single(p => p.ProductId == order2.OrderId);
         Assert.Equal(2, newProduct.Price);
         Assert.True(newProduct.Exist);
+    }
 
-        // Buy order
+    [Fact]
+    public async Task SyncProduct()
+    {
+        var ct = new CancellationToken();
+#pragma warning disable EF1001
+        var context = await _contextFactory.CreateDbContextAsync(ct);
+#pragma warning restore EF1001
+        await context.Database.EnsureDeletedAsync(ct);
+        await context.Database.EnsureCreatedAsync(ct);
+        var marketState = new MarketState();
+        var productsStates = new Dictionary<Address, ProductsState>();
+        for (int i = 0; i < 10; i++)
+        {
+            var agentAddress = new PrivateKey().ToAddress();
+            var avatarAddress = new PrivateKey().ToAddress();
+            var productState = new ProductsState();
+            marketState.AvatarAddresses.Add(avatarAddress);
+            for (int j = 0; j < 10; j++)
+            {
+                var tradableId = Guid.NewGuid();
+                var productId = Guid.NewGuid();
+                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L);
+                var itemProduct = new ItemProduct
+                {
+                    ProductId = productId,
+                    Price = (j + 1) * _currency,
+                    ItemCount = 1,
+                    RegisteredBlockIndex = 1L,
+                    Type = ProductType.NonFungible,
+                    SellerAgentAddress = agentAddress,
+                    SellerAvatarAddress = avatarAddress,
+                    TradableItem = item
+                };
+                productState.ProductIds.Add(productId);
+                _testService.SetState(Product.DeriveAddress(productId), itemProduct.Serialize());
+            }
+
+            var productsStateAddress = ProductsState.DeriveAddress(avatarAddress);
+            _testService.SetState(productsStateAddress, productState.Serialize());
+            productsStates[productsStateAddress] = productState;
+        }
+
+        _testService.SetState(Addresses.Market, marketState.Serialize());
+        await _client.SyncProduct(null!, _crystalEquipmentGrindingSheet, _crystalMonsterCollectionMultiplierSheet,
+            _costumeStatSheet);
+#pragma warning disable EF1001
+#pragma warning restore EF1001
+        var products = context.Products.AsNoTracking().ToList();
+        Assert.Equal(100, products.Count);
+        Assert.All(products, product => Assert.True(product.Exist));
+
+        // Cancel or Buy(deleted from chains)
+        foreach (var (key, productsState) in productsStates)
+        {
+            productsState.ProductIds = productsState.ProductIds.Skip(1).ToList();
+            _testService.SetState(key, productsState.Serialize());
+        }
+
+        await _client.SyncProduct(null!, _crystalEquipmentGrindingSheet, _crystalMonsterCollectionMultiplierSheet,
+            _costumeStatSheet);
+#pragma warning disable EF1001
+        var nextContext = await _contextFactory.CreateDbContextAsync(ct);
+#pragma warning restore EF1001
+        var nextProducts = nextContext.Products.AsNoTracking().ToList();
+        Assert.Equal(90, nextProducts.Count(p => p.Exist));
+        Assert.Equal(10, nextProducts.Count(p => !p.Exist));
+    }
+
+    [Fact]
+    public async Task GetOrderDigests()
+    {
+        var ct = new CancellationToken();
+#pragma warning disable EF1001
+        var context = await _contextFactory.CreateDbContextAsync(ct);
+#pragma warning restore EF1001
+        await context.Database.EnsureDeletedAsync(ct);
+        await context.Database.EnsureCreatedAsync(ct);
+
+        var shopAddresses = _client.GetShopAddress(ItemSubType.Armor).Select(a => new Address(a)).ToArray();
+
+        foreach (var shopAddress in shopAddresses)
+        {
+            var shopState = new ShardedShopStateV2(shopAddress);
+            var agentAddress = new PrivateKey().ToAddress();
+            var orderDigest = new OrderDigest(agentAddress, 0L, 1L, Guid.NewGuid(), Guid.NewGuid(), 1 * _currency, 1, 1,
+                1, 1);
+            shopState.Add(orderDigest, 0L);
+            _testService.SetState(shopAddress, shopState.Serialize());
+        }
+
+        var orderDigests = await _client.GetOrderDigests(ItemSubType.Armor, null!);
+
+        Assert.Equal(shopAddresses.Length, orderDigests.Count);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateProducts(bool legacy)
+    {
+        var ct = new CancellationToken();
+#pragma warning disable EF1001
+        var context = await _contextFactory.CreateDbContextAsync(ct);
+#pragma warning restore EF1001
+        await context.Database.EnsureDeletedAsync(ct);
+        await context.Database.EnsureCreatedAsync(ct);
+        var productPrice = 2 * _currency;
+        for (int i = 0; i < 2; i++)
+        {
+            ProductModel itemProduct = new ItemProductModel
+            {
+                ProductId = Guid.NewGuid(),
+                SellerAgentAddress = new PrivateKey().ToAddress(),
+                Quantity = 1,
+                Price = decimal.Parse(productPrice.GetQuantityString()),
+                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                ItemId = 3,
+                Exist = true,
+                ItemSubType = ItemSubType.Armor,
+                Legacy = legacy
+            };
+            ProductModel favProduct = new FungibleAssetValueProductModel
+            {
+                ProductId = Guid.NewGuid(),
+                SellerAgentAddress = new PrivateKey().ToAddress(),
+                Quantity = 2,
+                Price = decimal.Parse(productPrice.GetQuantityString()),
+                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                Exist = true,
+                Legacy = !legacy
+            };
+            await context.Products.AddRangeAsync(itemProduct, favProduct);
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        var products = context.Products.AsNoTracking().ToList();
+        Assert.All(products, product => Assert.True(product.Exist));
+        Assert.Equal(4, products.Count);
+
+        var deletedId = products.First(p => p.Legacy == legacy).ProductId;
+        var deletedIds = new List<Guid>
+        {
+            deletedId,
+            products.First(p => p.Legacy != legacy).ProductId
+        };
+
+        await _client.UpdateProducts(deletedIds, context, legacy);
+
+#pragma warning disable EF1001
+        var nextContext = await _contextFactory.CreateDbContextAsync(ct);
+#pragma warning restore EF1001
+        var nextProducts = nextContext.Products.AsNoTracking().ToList();
+        Assert.Equal(4, nextProducts.Count);
+        var existProducts = nextProducts.Where(p => p.Exist).ToList();
+        Assert.Equal(3, existProducts.Count);
+        var existProduct = Assert.Single(existProducts.Where(p => p.Exist && p.Legacy == legacy));
+        Assert.NotEqual(deletedId, existProduct.ProductId);
     }
 
     private class TestClient : RpcClient

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 
@@ -27,6 +28,10 @@ public class ProductWorker : BackgroundService
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
+            var stopWatch = new Stopwatch();
+            _logger.LogInformation("Start sync product");
+            stopWatch.Start();
+
             while (!_rpcClient.Init) await Task.Delay(100, stoppingToken);
 
             try
@@ -43,6 +48,9 @@ public class ProductWorker : BackgroundService
                 _logger.LogError(e, "error occured");
             }
 
+            stopWatch.Stop();
+            var ts = stopWatch.Elapsed;
+            _logger.LogInformation("Complete sync product. {TotalElapsed}", ts);
             await Task.Delay(1000, stoppingToken);
         }
     }
