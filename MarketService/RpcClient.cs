@@ -166,31 +166,22 @@ public class RpcClient
         sw.Stop();
         await InsertOrders(hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
             crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
-        await UpdateLegacyProducts(deletedIds, chainIds, marketContext);
+        await UpdateProducts(deletedIds, marketContext, true);
     }
 
-    private async Task UpdateLegacyProducts(List<Guid> deletedIds, List<Guid> chainProductIds,
-        MarketContext marketContext)
+    public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy)
     {
+        await marketContext.Database.BeginTransactionAsync();
         // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
-        // Product의 상태가 Null이거나 DB에는 남아 있으나 체인상 ProductList에 해당 아이디가 없는 경우
         if (deletedIds.Any())
         {
             var param = new NpgsqlParameter("@targetIds", deletedIds);
             await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE legacy = {true} and productid = any(@targetIds)",
+                $"UPDATE products set exist = {false} WHERE legacy = {legacy} and productid = any(@targetIds)",
                 param);
         }
 
-        if (chainProductIds.Any())
-        {
-            var param = new NpgsqlParameter("@chainIds", chainProductIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE legacy = {true} and not exists (select 1 from products where products.productid = any(@chainIds))",
-                param);
-        }
-
-        _logger.LogInformation($"UpdateProducts: {deletedIds.Count}");
+        await marketContext.Database.CommitTransactionAsync();
     }
 
     private async Task InsertOrders(byte[] hashBytes, List<Guid> orderIds, List<Guid> tradableIds,
@@ -267,34 +258,12 @@ public class RpcClient
             deletedIds = deletedIds.Distinct().ToList();
             await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet);
-            await UpdateProducts(deletedIds, chainIds);
+            await UpdateProducts(deletedIds, marketContext, false);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Unexpected exception occurred during SyncProduct: {Exc}", e);
         }
-    }
-
-    private async Task UpdateProducts(List<Guid> targetIds, List<Guid> chainProductIds)
-    {
-        // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
-        // Product의 상태가 Null이거나 DB에는 남아 있으나 체인상 ProductList에 해당 아이디가 없는 경우
-        var marketContext = await _contextFactory.CreateDbContextAsync();
-        if (targetIds.Any())
-        {
-            var param = new NpgsqlParameter("@targetIds", targetIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE productid = any(@targetIds)", param);
-        }
-
-        if (chainProductIds.Any())
-        {
-            var param = new NpgsqlParameter("@chainIds", chainProductIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE not productid = any(@chainIds)", param);
-        }
-
-        _logger.LogInformation($"UpdateProducts: {targetIds.Count}");
     }
 
     private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
