@@ -16,6 +16,7 @@ using Libplanet.Assets;
 using Libplanet.Crypto;
 using MagicOnion;
 using MagicOnion.Server;
+using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ using Microsoft.Extensions.Options;
 using Nekoyume;
 using Nekoyume.Action;
 using Nekoyume.Model.Item;
+using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
 using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
@@ -40,6 +42,9 @@ public class RpcClientTest
     private readonly EquipmentItemSheet.Row _row;
     private readonly TestService _testService;
     private readonly string _connectionString;
+    private readonly Currency _currency;
+    private readonly RpcClient _client;
+    private readonly DbContextFactory<MarketContext> _contextFactory;
 
     public RpcClientTest()
     {
@@ -311,6 +316,18 @@ public class RpcClientTest
 49900007,Championship 1 Ranker,Title,5,Normal,
 49900008,Championship 2 Ranker,Title,5,Normal,
 49900009,2022 Grand Finale,Title,3,Normal,");
+#pragma warning disable CS0618
+        _currency = Currency.Legacy("NCG", 2, null);
+#pragma warning restore CS0618
+#pragma warning disable EF1001
+        _contextFactory = new DbContextFactory<MarketContext>(null!,
+            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
+                .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
+#pragma warning restore EF1001
+        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
+        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
+        _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
+            new Logger<RpcClient>(new LoggerFactory()), receiver, _contextFactory, _testService);
     }
 
     [Theory]
@@ -319,24 +336,14 @@ public class RpcClientTest
     public async Task SyncOrder_Cancel(ItemSubType itemSubType)
     {
         var ct = new CancellationToken();
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
 #pragma warning disable EF1001
-        var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
-                .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
-        var context = await contextFactory.CreateDbContextAsync(ct);
+        var context = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         await context.Database.EnsureDeletedAsync(ct);
         await context.Database.EnsureCreatedAsync(ct);
-        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
-        var client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            new Logger<RpcClient>(new LoggerFactory()), receiver, contextFactory, _testService);
         var agentAddress = new PrivateKey().ToAddress();
         var avatarAddress = new PrivateKey().ToAddress();
-#pragma warning disable CS0618
-        var currency = Currency.Legacy("NCG", 2, null);
-#pragma warning restore CS0618
-        var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
+        var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
         var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
@@ -353,6 +360,7 @@ public class RpcClientTest
             var row = _costumeItemSheet.Values.First(r => r.Id == costumeId);
             item = ItemFactory.CreateCostume(row, order.TradableId);
         }
+
         var orderDigest = new OrderDigest(
             agentAddress,
             0L,
@@ -362,7 +370,7 @@ public class RpcClientTest
             order.Price,
             0,
             0,
-            ((ItemBase)item).Id,
+            ((ItemBase) item).Id,
             1
         );
         shopState.Add(orderDigest, 0L);
@@ -370,11 +378,11 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        var orderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        var orderDigestList = await _client.GetOrderDigests(itemSubType, null!);
         Assert.Single(orderDigestList);
         var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(chainIds);
-        await client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
@@ -384,20 +392,18 @@ public class RpcClientTest
         // Cancel order
         shopState.Remove(order, 1L);
         _testService.SetState(shopAddress, shopState.Serialize());
-        var newOrderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        var newOrderDigestList = await _client.GetOrderDigests(itemSubType, null!);
         Assert.Empty(newOrderDigestList);
         var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Empty(newChainIds);
-        await client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
-        var nextContext = await contextFactory.CreateDbContextAsync(ct);
+        var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         var updatedProductModel = Assert.Single(nextContext.Products);
         Assert.Equal(productModel.ProductId, updatedProductModel.ProductId);
         Assert.False(updatedProductModel.Exist);
-
-        // Buy order
     }
 
     [Theory]
@@ -405,24 +411,14 @@ public class RpcClientTest
     public async Task SyncOrder_ReRegister(ItemSubType itemSubType)
     {
         var ct = new CancellationToken();
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
 #pragma warning disable EF1001
-        var contextFactory = new DbContextFactory<MarketContext>(null!,
-            new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
-                .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
-        var context = await contextFactory.CreateDbContextAsync(ct);
+        var context = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         await context.Database.EnsureDeletedAsync(ct);
         await context.Database.EnsureCreatedAsync(ct);
-        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
-        var client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            new Logger<RpcClient>(new LoggerFactory()), receiver, contextFactory, _testService);
         var agentAddress = new PrivateKey().ToAddress();
         var avatarAddress = new PrivateKey().ToAddress();
-#pragma warning disable CS0618
-        var currency = Currency.Legacy("NCG", 2, null);
-#pragma warning restore CS0618
-        var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * currency, Guid.NewGuid(), 0L,
+        var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
         var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
@@ -445,11 +441,11 @@ public class RpcClientTest
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
         // Insert order
-        var orderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        var orderDigestList = await _client.GetOrderDigests(itemSubType, null!);
         Assert.Single(orderDigestList);
         var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(chainIds);
-        await client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.Products);
         Assert.True(productModel.Legacy);
@@ -459,7 +455,7 @@ public class RpcClientTest
         shopState.Remove(order, 1L);
         _testService.SetState(shopAddress, shopState.Serialize());
 
-        var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * currency, order.TradableId,
+        var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * _currency, order.TradableId,
             1L,
             itemSubType, 1);
         var shopAddress2 = ShardedShopStateV2.DeriveAddress(itemSubType, order2.OrderId);
@@ -480,14 +476,14 @@ public class RpcClientTest
         _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
         _testService.SetState(shopAddress2, shopState2.Serialize());
 
-        var newOrderDigestList = await client.GetOrderDigests(itemSubType, null!);
+        var newOrderDigestList = await _client.GetOrderDigests(itemSubType, null!);
         Assert.Single(newOrderDigestList);
         var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(newChainIds);
-        await client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
-        var nextContext = await contextFactory.CreateDbContextAsync(ct);
+        var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         Assert.Equal(2, nextContext.Products.Count());
         var oldProduct = nextContext.Products.Single(p => p.ProductId == order.OrderId);
