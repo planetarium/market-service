@@ -26,9 +26,12 @@ internal static class Program
             .ConfigureAppConfiguration((_, configuration) =>
             {
                 IConfiguration configurationRoot = configuration.Build();
-                RpcConfigOptions options = new();
+                RpcConfigOptions rpcConfigOptions = new();
                 configurationRoot.GetSection(RpcConfigOptions.RpcConfig)
-                    .Bind(options);
+                    .Bind(rpcConfigOptions);
+                WorkerOptions workerOptions = new();
+                configurationRoot.GetSection(WorkerOptions.WorkerConfig)
+                    .Bind(workerOptions);
             })
             .ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
     }
@@ -42,6 +45,7 @@ public class Startup
     }
 
     public IConfiguration Configuration { get; }
+    private WorkerOptions _workerOptions { get; }
 
     public void ConfigureServices(IServiceCollection services)
     {
@@ -52,6 +56,8 @@ public class Startup
         services.AddSwaggerGen();
         services.Configure<RpcConfigOptions>(
             Configuration.GetSection(RpcConfigOptions.RpcConfig));
+        services.Configure<WorkerOptions>(
+            Configuration.GetSection(WorkerOptions.WorkerConfig));
         services.AddDbContextFactory<MarketContext>(options =>
             options
                 .UseNpgsql(Configuration.GetConnectionString("MARKET"))
@@ -60,8 +66,18 @@ public class Startup
         );
         services.AddSingleton<RpcClient>();
         services.AddSingleton<Receiver>();
-        services.AddHostedService<ShopWorker>();
-        services.AddHostedService<ProductWorker>();
+        WorkerOptions workerOptions = new();
+        Configuration.GetSection(WorkerOptions.WorkerConfig)
+            .Bind(workerOptions);
+        if (workerOptions.SyncShop)
+        {
+            services.AddHostedService<ShopWorker>();
+        }
+
+        if (workerOptions.SyncProduct)
+        {
+            services.AddHostedService<ProductWorker>();
+        }
         services.AddMvc()
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
