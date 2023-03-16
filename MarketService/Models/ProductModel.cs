@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using Libplanet;
 using MarketService.Response;
 using MarketService.Response.Interface;
@@ -18,4 +19,7 @@ public class ProductModel : IProductSchema
     public long RegisteredBlockIndex { get; set; }
     public bool Exist { get; set; }
     public bool Legacy { get; set; }
+
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
