@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Bencodex;
 using Bencodex.Types;
@@ -28,6 +29,8 @@ namespace MarketService;
 
 public class RpcClient
 {
+    private const int MaxDegreeOfParallelism = 8;
+
     private static readonly List<ItemSubType> ShardedSubTypes = new()
     {
         ItemSubType.Weapon,
@@ -46,6 +49,12 @@ public class RpcClient
     private readonly IDbContextFactory<MarketContext> _contextFactory;
     private readonly ILogger<RpcClient> _logger;
     private readonly Receiver _receiver;
+
+    private readonly ParallelOptions _parallelOptions = new()
+    {
+        MaxDegreeOfParallelism = MaxDegreeOfParallelism
+    };
+
     protected IBlockChainService Service = null!;
 
 
@@ -60,7 +69,11 @@ public class RpcClient
             new GrpcChannelOptions
             {
                 Credentials = ChannelCredentials.Insecure,
-                MaxReceiveMessageSize = null
+                MaxReceiveMessageSize = null,
+                HttpHandler = new SocketsHttpHandler
+                {
+                    EnableMultipleHttp2Connections = true,
+                }
             }
         );
         _receiver = receiver;
@@ -102,119 +115,126 @@ public class RpcClient
         }
     }
 
-    public async Task SyncOrder(ItemSubType itemSubType, byte[] hashBytes,
-        CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
+    public async Task<List<OrderDigest>> GetOrderDigests(ItemSubType itemSubType, byte[] hashBytes)
     {
         while (!Init) await Task.Delay(100);
 
+        var orderDigestList = new List<OrderDigest>();
         try
         {
-            var sw = new Stopwatch();
-            sw.Start();
             var addressList = GetShopAddress(itemSubType);
             var result = await Service.GetStateBulk(addressList, hashBytes);
-            sw.Stop();
             var shopStates = GetShopStates(result);
-            _logger.LogInformation("Get ShopStateRaw: {Ts}", sw.Elapsed);
-            sw.Restart();
-            var chainIds = new List<Guid>();
-            var orderDigestList = new List<OrderDigest>();
-            var tradableIds = new List<Guid>();
             foreach (var shopState in shopStates)
             foreach (var orderDigest in shopState.OrderDigestList)
             {
-                chainIds.Add(orderDigest.OrderId);
                 orderDigestList.Add(orderDigest);
-                if (!tradableIds.Contains(orderDigest.TradableId)) tradableIds.Add(orderDigest.TradableId);
             }
-
-            var marketContext = await _contextFactory.CreateDbContextAsync();
-            var existIds = marketContext.Database
-                .SqlQueryRaw<Guid>(
-                    $"Select productid from products where exist = {true} and legacy = {true} and itemsubtype = {(int) itemSubType}")
-                .ToList();
-            var deletedIds = existIds.Where(i => !chainIds.Contains(i)).ToList();
-            var orderIds = chainIds.Where(i => !existIds.Contains(i)).ToList();
-            sw.Stop();
-            _logger.LogInformation(
-                $"existIds: {existIds.Count}, deletedIds: {deletedIds.Count}, orderIds: {orderIds.Count}");
-            _logger.LogInformation("Get TargetIds: {Ts}", sw.Elapsed);
-            sw.Restart();
-            // var purchasedIds = GetOrderPurchasedIds(deletedIds, hashBytes);
-            await InsertOrders(itemSubType, hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
-                crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
-            sw.Stop();
-            _logger.LogInformation("InsertOrders: {Ts}", sw.Elapsed);
-            sw.Restart();
-            await UpdateLegacyProducts(deletedIds, chainIds, itemSubType);
-            sw.Stop();
-            _logger.LogInformation("UpdateProducts: {Ts}", sw.Elapsed);
         }
         catch (Exception e)
         {
             _logger.LogError(e, "Unexpected exception occurred during SyncOrder: {Exc}", e);
         }
+
+        return orderDigestList;
     }
 
-    private async Task InsertOrders(ItemSubType itemSubType, byte[] hashBytes, List<Guid> orderIds,
-        List<Guid> tradableIds,
-        MarketContext marketContext, List<OrderDigest> orderDigestList,
+    public async Task SyncOrder(List<Guid> chainIds, List<OrderDigest> orderDigestList, byte[] hashBytes,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
-        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet, CostumeStatSheet costumeStatSheet)
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
+        CostumeStatSheet costumeStatSheet)
     {
         var sw = new Stopwatch();
         sw.Start();
-        var orders = await GetOrders(orderIds, hashBytes);
-        sw.Stop();
-        _logger.LogInformation("GetOrders: {Ts}", sw.Elapsed);
-        sw.Restart();
-        var items = await GetItems(tradableIds, hashBytes);
-        sw.Stop();
-        _logger.LogInformation("GetItems: {Ts}", sw.Elapsed);
-        sw.Restart();
-        var list = new List<ProductModel>();
-        foreach (var order in orders)
+        _logger.LogInformation("Start SyncOrder");
+        var marketContext = await _contextFactory.CreateDbContextAsync();
+        var existIds = marketContext.Database
+            .SqlQueryRaw<Guid>(
+                $"Select productid from products where exist = {true} and legacy = {true}")
+            .ToList();
+        var deletedIds = existIds.Where(i => !chainIds.Contains(i)).ToList();
+        var orderIds = chainIds.Where(i => !existIds.Contains(i)).ToList();
+        var tradableIds = new List<Guid>();
+        foreach (var digest in orderDigestList)
         {
-            var orderDigest = orderDigestList.First(o => o.OrderId == order.OrderId);
-            var item = items.OfType<ITradableItem>().First(i => i.TradableId == order.TradableId);
-            var itemProduct = new ItemProductModel
+            if (orderIds.Contains(digest.OrderId) && !tradableIds.Contains(digest.TradableId))
             {
-                ProductId = order.OrderId,
-                SellerAgentAddress = order.SellerAgentAddress,
-                SellerAvatarAddress = order.SellerAvatarAddress,
-                Quantity = orderDigest.ItemCount,
-                ItemId = orderDigest.ItemId,
-                Price = decimal.Parse(orderDigest.Price.GetQuantityString()),
-                ItemType = item.ItemType,
-                ItemSubType = item.ItemSubType,
-                TradableId = item.TradableId,
-                RegisteredBlockIndex = orderDigest.StartedBlockIndex,
-                Exist = true,
-                Legacy = true
-            };
-            itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
-            list.Add(itemProduct);
+                tradableIds.Add(digest.TradableId);
+            }
         }
 
-        foreach (var chunk in list.Chunk(1000))
+        sw.Stop();
+        await InsertOrders(hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
+            crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
+        await UpdateProducts(deletedIds, marketContext, true);
+    }
+
+    public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy)
+    {
+        await marketContext.Database.BeginTransactionAsync();
+        // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
+        if (deletedIds.Any())
+        {
+            var param = new NpgsqlParameter("@targetIds", deletedIds);
+            await marketContext.Database.ExecuteSqlRawAsync(
+                $"UPDATE products set exist = {false} WHERE legacy = {legacy} and productid = any(@targetIds)",
+                param);
+        }
+
+        await marketContext.Database.CommitTransactionAsync();
+    }
+
+    public async Task InsertOrders(byte[] hashBytes, List<Guid> orderIds, List<Guid> tradableIds,
+        MarketContext marketContext, List<OrderDigest> orderDigestList,
+        CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
+        CostumeStatSheet costumeStatSheet)
+    {
+        var orders = await GetOrders(orderIds, hashBytes);
+        var items = await GetItems(tradableIds, hashBytes);
+        var productBag = new ConcurrentBag<ProductModel>();
+        orders
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(order =>
+            {
+                var orderDigest = orderDigestList.First(o => o.OrderId == order.OrderId);
+                var item = items.OfType<ITradableItem>().First(i => i.TradableId == order.TradableId);
+                var itemProduct = new ItemProductModel
+                {
+                    ProductId = order.OrderId,
+                    SellerAgentAddress = order.SellerAgentAddress,
+                    SellerAvatarAddress = order.SellerAvatarAddress,
+                    Quantity = orderDigest.ItemCount,
+                    ItemId = orderDigest.ItemId,
+                    Price = decimal.Parse(orderDigest.Price.GetQuantityString()),
+                    ItemType = item.ItemType,
+                    ItemSubType = item.ItemSubType,
+                    TradableId = item.TradableId,
+                    RegisteredBlockIndex = orderDigest.StartedBlockIndex,
+                    Exist = true,
+                    Legacy = true
+                };
+                itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
+                    crystalMonsterCollectionMultiplierSheet);
+                productBag.Add(itemProduct);
+            });
+
+        foreach (var chunk in productBag.Chunk(1000))
         {
             await marketContext.Products.AddRangeAsync(chunk);
             await marketContext.SaveChangesAsync();
         }
-
-        sw.Stop();
-        _logger.LogInformation("Insert rows: {Ts}", sw.Elapsed);
-        _logger.LogInformation($"{itemSubType}: {list.Count}");
     }
 
-    public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+    public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
+        CostumeStatSheet costumeStatSheet)
     {
         while (!Init) await Task.Delay(100);
 
         try
         {
-            var costumeStatSheet = await GetCostumeStatSheet(hashBytes);
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
@@ -230,13 +250,15 @@ public class RpcClient
             {
                 chainIds.Add(kv.Key);
                 if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
-                if (kv.Value is List deserialized) products.Add(ProductFactory.DeserializeProduct(deserialized));
+                if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
+
             // filter ids chain not exist product ids.
             deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
             deletedIds = deletedIds.Distinct().ToList();
-            await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
-            await UpdateProducts(deletedIds, chainIds);
+            await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
+                crystalMonsterCollectionMultiplierSheet);
+            await UpdateProducts(deletedIds, marketContext, false);
         }
         catch (Exception e)
         {
@@ -244,120 +266,67 @@ public class RpcClient
         }
     }
 
-    private async Task UpdateProducts(List<Guid> targetIds, List<Guid> chainProductIds)
-    {
-        // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
-        // Product의 상태가 Null이거나 DB에는 남아 있으나 체인상 ProductList에 해당 아이디가 없는 경우
-        var marketContext = await _contextFactory.CreateDbContextAsync();
-        if (targetIds.Any())
-        {
-            var param = new NpgsqlParameter("@targetIds", targetIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE productid = any(@targetIds)", param);
-        }
-
-        if (chainProductIds.Any())
-        {
-            var param = new NpgsqlParameter("@chainIds", chainProductIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE not productid = any(@chainIds)", param);
-        }
-
-        _logger.LogInformation($"UpdateProducts: {targetIds.Count}");
-    }
-
-    private async Task UpdateLegacyProducts(List<Guid> targetIds, List<Guid> chainProductIds, ItemSubType itemSubType)
-    {
-        // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
-        // Product의 상태가 Null이거나 DB에는 남아 있으나 체인상 ProductList에 해당 아이디가 없는 경우
-        var marketContext = await _contextFactory.CreateDbContextAsync();
-        if (targetIds.Any())
-        {
-            var param = new NpgsqlParameter("@targetIds", targetIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE itemsubtype = {(int) itemSubType} and legacy = {true} and productid = any(@targetIds)",
-                param);
-        }
-
-        if (chainProductIds.Any())
-        {
-            var param = new NpgsqlParameter("@chainIds", chainProductIds);
-            await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE itemsubtype = {(int) itemSubType} and legacy = {true} and not productid = any(@chainIds)",
-                param);
-        }
-
-        _logger.LogInformation($"UpdateProducts: {targetIds.Count}");
-    }
-
-    private async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet, CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
+    public async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
+        CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
+        CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var existProductIds = marketContext.Products.AsNoTracking().Where(p => p.Exist && !p.Legacy).Select(p => p.ProductId);
-        var filteredProducts = products.Where(p => !existProductIds.Contains(p.ProductId)).ToList();
-        var itemProducts = filteredProducts.OfType<ItemProduct>().ToList();
-        var favProducts = filteredProducts.OfType<FavProduct>().ToList();
-        var list = new List<ProductModel>();
-        foreach (var itemProduct in itemProducts)
-        {
-            var item = (ItemBase) itemProduct.TradableItem;
-            var itemProductModel = new ItemProductModel
+        var itemProducts = products.OfType<ItemProduct>().ToList();
+        var favProducts = products.OfType<FavProduct>().ToList();
+        var productBag = new ConcurrentBag<ProductModel>();
+        itemProducts
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(itemProduct =>
             {
-                ProductId = itemProduct.ProductId,
-                SellerAgentAddress = itemProduct.SellerAgentAddress,
-                SellerAvatarAddress = itemProduct.SellerAvatarAddress,
-                Quantity = itemProduct.ItemCount,
-                ItemId = item.Id,
-                Price = decimal.Parse(itemProduct.Price.GetQuantityString()),
-                ItemType = item.ItemType,
-                ItemSubType = item.ItemSubType,
-                TradableId = itemProduct.TradableItem.TradableId,
-                RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
+                var item = (ItemBase) itemProduct.TradableItem;
+                var itemProductModel = new ItemProductModel
+                {
+                    ProductId = itemProduct.ProductId,
+                    SellerAgentAddress = itemProduct.SellerAgentAddress,
+                    SellerAvatarAddress = itemProduct.SellerAvatarAddress,
+                    Quantity = itemProduct.ItemCount,
+                    ItemId = item.Id,
+                    Price = decimal.Parse(itemProduct.Price.GetQuantityString()),
+                    ItemType = item.ItemType,
+                    ItemSubType = item.ItemSubType,
+                    TradableId = itemProduct.TradableItem.TradableId,
+                    RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
 #pragma warning disable CS0618
-                CombatPoint = CPHelper.GetCP(itemProduct.TradableItem, costumeStatSheet),
+                    CombatPoint = CPHelper.GetCP(itemProduct.TradableItem, costumeStatSheet),
 #pragma warning restore CS0618
-                Exist = true
-            };
+                    Exist = true
+                };
 
-            itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
-            list.Add(itemProductModel);
-        }
+                itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
+                    crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                productBag.Add(itemProductModel);
+            });
 
-        foreach (var favProduct in favProducts)
-        {
-            var asset = favProduct.Asset;
-            var favProductModel = new FungibleAssetValueProductModel
+        favProducts
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(favProduct =>
             {
-                SellerAvatarAddress = favProduct.SellerAvatarAddress,
-                DecimalPlaces = asset.Currency.DecimalPlaces,
-                Exist = true,
-                Legacy = false,
-                Price = decimal.Parse(favProduct.Price.GetQuantityString()),
-                ProductId = favProduct.ProductId,
-                Quantity = decimal.Parse(asset.GetQuantityString()),
-                RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
-                SellerAgentAddress = favProduct.SellerAgentAddress,
-                Ticker = asset.Currency.Ticker
-            };
-            list.Add(favProductModel);
-        }
+                var asset = favProduct.Asset;
+                var favProductModel = new FungibleAssetValueProductModel
+                {
+                    SellerAvatarAddress = favProduct.SellerAvatarAddress,
+                    DecimalPlaces = asset.Currency.DecimalPlaces,
+                    Exist = true,
+                    Legacy = false,
+                    Price = decimal.Parse(favProduct.Price.GetQuantityString()),
+                    ProductId = favProduct.ProductId,
+                    Quantity = decimal.Parse(asset.GetQuantityString()),
+                    RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
+                    SellerAgentAddress = favProduct.SellerAgentAddress,
+                    Ticker = asset.Currency.Ticker
+                };
+                productBag.Add(favProductModel);
+            });
 
-        await marketContext.Products.AddRangeAsync(list);
+        await marketContext.Products.AddRangeAsync(productBag.ToList());
         await marketContext.SaveChangesAsync();
-    }
-
-    public async Task<CostumeStatSheet> GetCostumeStatSheet(byte[] hashBytes)
-    {
-        var sheetAddress = Addresses.GetSheetAddress<CostumeStatSheet>();
-        var result = await Service.GetState(sheetAddress.ToByteArray(), hashBytes);
-        if (_codec.Decode(result) is Text t)
-        {
-            var sheet = new CostumeStatSheet();
-            sheet.Set(t);
-            return sheet;
-        }
-
-        throw new Exception();
     }
 
     public async Task<T> GetSheet<T>(byte[] hashBytes) where T : ISheet, new()
@@ -382,7 +351,7 @@ public class RpcClient
         return block.Hash.ToByteArray();
     }
 
-    private async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
+    public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
         byte[] hashBytes)
     {
         var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
@@ -402,7 +371,7 @@ public class RpcClient
         return result;
     }
 
-    private List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
+    public List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
     {
         var result = new List<ProductsState>();
         foreach (var kv in queryResult)
@@ -412,7 +381,7 @@ public class RpcClient
         return result;
     }
 
-    private IEnumerable<byte[]> GetShopAddress(ItemSubType itemSubType)
+    public IEnumerable<byte[]> GetShopAddress(ItemSubType itemSubType)
     {
         if (ShardedSubTypes.Contains(itemSubType))
         {
@@ -424,7 +393,7 @@ public class RpcClient
         return new[] {ShardedShopStateV2.DeriveAddress(itemSubType, "").ToByteArray()};
     }
 
-    private IEnumerable<ShardedShopStateV2> GetShopStates(Dictionary<byte[], byte[]> queryResult)
+    public IEnumerable<ShardedShopStateV2> GetShopStates(Dictionary<byte[], byte[]> queryResult)
     {
         var result = new List<ShardedShopStateV2>();
         foreach (var kv in queryResult)
@@ -436,71 +405,81 @@ public class RpcClient
         return result;
     }
 
-    private async Task<List<Order>> GetOrders(IEnumerable<Guid> orderIds, byte[] hashBytes)
+    public async Task<List<Order>> GetOrders(IEnumerable<Guid> orderIds, byte[] hashBytes)
     {
         var orderAddressList = orderIds.Select(i => Order.DeriveAddress(i).ToByteArray()).ToList();
-        var orderResult = await GetChunkedStates(orderAddressList, hashBytes);
-        return orderResult.Select(kv => OrderFactory.Deserialize((Dictionary) kv.Value)).ToList();
+        var chunks = orderAddressList
+            .Select((x, i) => new {Index = i, Value = x})
+            .GroupBy(x => x.Index / 1000)
+            .Select(x => x.Select(v => v.Value).ToList())
+            .ToList();
+
+        var orderBag = new ConcurrentBag<Order>();
+        await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
+        {
+            var orderResult = await GetStates(chunk, hashBytes);
+            foreach (var kv in orderResult)
+            {
+                var order = OrderFactory.Deserialize((Dictionary) kv.Value);
+                orderBag.Add(order);
+            }
+        });
+        return orderBag.ToList();
     }
 
-    private async Task<List<ItemBase>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
+    public async Task<List<ItemBase>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
     {
         var itemAddressList = tradableIds.Select(i => Addresses.GetItemAddress(i).ToByteArray()).ToList();
-        var itemResult = await GetChunkedStates(itemAddressList, hashBytes);
-
-        return itemResult.Select(kv => ItemFactory.Deserialize((Dictionary) kv.Value)).ToList();
-    }
-
-    private async Task<List<Guid>> GetOrderPurchasedIds(IEnumerable<Guid> orderIds, byte[] hashBytes)
-    {
-        var receiptAddressList = orderIds.Select(i => OrderReceipt.DeriveAddress(i).ToByteArray()).ToList();
-        var receiptResult = await GetChunkedStates(receiptAddressList, hashBytes);
-        var result = new List<Guid>();
-        foreach (var kv in receiptResult)
-            if (kv.Value is Dictionary dictionary)
+        var chunks = itemAddressList
+            .Select((x, i) => new {Index = i, Value = x})
+            .GroupBy(x => x.Index / 1000)
+            .Select(x => x.Select(v => v.Value).ToList())
+            .ToList();
+        var itemBag = new ConcurrentBag<ItemBase>();
+        await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
+        {
+            var itemResult = await GetStates(chunk, hashBytes);
+            foreach (var kv in itemResult)
             {
-                var receipt = new OrderReceipt(dictionary);
-                result.Add(receipt.OrderId);
+                var item = ItemFactory.Deserialize((Dictionary) kv.Value);
+                itemBag.Add(item);
             }
-
-        return result;
+        });
+        return itemBag.ToList();
     }
 
-    private async Task<Dictionary<Address, IValue>> GetChunkedStates(List<byte[]> addressList, byte[] hashBytes)
+    public async Task<Dictionary<Address, IValue>> GetStates(List<byte[]> addressList, byte[] hashBytes)
     {
-        var result = new Dictionary<Address, IValue>();
+        var result = new ConcurrentDictionary<Address, IValue>();
+        var queryResult = await Service.GetStateBulk(addressList, hashBytes);
+        queryResult
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(kv =>
+            {
+                result.TryAdd(new Address(kv.Key), _codec.Decode(kv.Value));
+            });
+        return result.ToDictionary(kv => kv.Key, kv => kv.Value);
+    }
+
+    public async Task<Dictionary<Address, IValue>> GetChunkedStates(List<byte[]> addressList, byte[] hashBytes)
+    {
+        var result = new ConcurrentDictionary<Address, IValue>();
         var chunks = addressList
             .Select((x, i) => new {Index = i, Value = x})
             .GroupBy(x => x.Index / 1000)
             .Select(x => x.Select(v => v.Value).ToList())
             .ToList();
-        var sw = new Stopwatch();
-        sw.Start();
-        for (var i = 0; i < chunks.Count; i++)
+        await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var chunk = chunks[i];
             var queryResult = await Service.GetStateBulk(chunk, hashBytes);
-            sw.Stop();
-            _logger.LogInformation($"GetChunked States {i} / {chunks.Count}: {sw.Elapsed}");
-            sw.Restart();
             foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
-            sw.Stop();
-            _logger.LogInformation($"Deserialized result {i} / {chunks.Count}: {sw.Elapsed}");
-            sw.Restart();
-        }
+        });
 
-        sw.Stop();
-        // foreach (var chunked in addressList.Chunk(500))
-        // {
-        //     var queryResult = await Service.GetStateBulk(chunked, hashBytes);
-        //
-        //     await Task.Delay(100);
-        // }
-
-        return result;
+        return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
-    private async Task<MarketState> GetMarket(byte[] hashBytes)
+    public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
         var marketResult = await Service.GetState(Addresses.Market.ToByteArray(), hashBytes);
         var value = _codec.Decode(marketResult);

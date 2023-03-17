@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using Lib9c.Model.Order;
 using Nekoyume.Model.Item;
+using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 
 namespace MarketService;
@@ -38,6 +41,10 @@ public class ShopWorker : BackgroundService
             ItemSubType.TailCostume,
             ItemSubType.Title
         };
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 8
+        };
         while (true)
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
@@ -52,25 +59,26 @@ public class ShopWorker : BackgroundService
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
-            var costumeStatSheet = await _rpcClient.GetCostumeStatSheet(hashBytes);
-            foreach (var itemSubType in itemSubTypes)
+            var costumeStatSheet = await _rpcClient.GetSheet<CostumeStatSheet>(hashBytes);
+            var chainIds = new ConcurrentBag<Guid>();
+            var orderDigestList = new ConcurrentBag<OrderDigest>();
+            await Parallel.ForEachAsync(itemSubTypes, parallelOptions, async (itemSubType, st) =>
             {
-                try
-                {
-                    await _rpcClient.SyncOrder(itemSubType, hashBytes, crystalEquipmentGrindingSheet,
-                        crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
-                }
-                catch (Exception e)
-                {
-                    _logger.LogError(e, "error occured");
-                }
+                var list = await _rpcClient.GetOrderDigests(itemSubType, hashBytes);
 
-                await Task.Delay(100, stoppingToken);
-            }
+                foreach (var digest in list)
+                {
+                    chainIds.Add(digest.OrderId);
+                    orderDigestList.Add(digest);
+                }
+            });
+            await _rpcClient.SyncOrder(chainIds.ToList(), orderDigestList.ToList(), hashBytes,
+                crystalEquipmentGrindingSheet,
+                crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            _logger.LogInformation("Complete sync shop. {TotalElapsed}", ts);
+            _logger.LogInformation("Complete sync shop({TotalCount}). {TotalElapsed}", orderDigestList.Count, ts);
             await Task.Delay(3000, stoppingToken);
         }
     }

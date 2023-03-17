@@ -23,6 +23,16 @@ internal static class Program
     public static IHostBuilder CreateHostBuilder(string[] args)
     {
         return Host.CreateDefaultBuilder(args)
+            .ConfigureAppConfiguration((_, configuration) =>
+            {
+                IConfiguration configurationRoot = configuration.Build();
+                RpcConfigOptions rpcConfigOptions = new();
+                configurationRoot.GetSection(RpcConfigOptions.RpcConfig)
+                    .Bind(rpcConfigOptions);
+                WorkerOptions workerOptions = new();
+                configurationRoot.GetSection(WorkerOptions.WorkerConfig)
+                    .Bind(workerOptions);
+            })
             .ConfigureWebHostDefaults(webBuilder => webBuilder.UseStartup<Startup>());
     }
 }
@@ -31,17 +41,14 @@ public class Startup
 {
     public Startup(IConfiguration configuration)
     {
-        var connectionString = $"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}";
-        Console.WriteLine($"Startup connectionString: {connectionString}");
         Configuration = configuration;
     }
 
     public IConfiguration Configuration { get; }
+    private WorkerOptions _workerOptions { get; }
 
     public void ConfigureServices(IServiceCollection services)
     {
-        var connectionString = $"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}";
-        Console.WriteLine($"connectionString: {connectionString}");
 // Add services to the container.
         services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -49,25 +56,32 @@ public class Startup
         services.AddSwaggerGen();
         services.Configure<RpcConfigOptions>(
             Configuration.GetSection(RpcConfigOptions.RpcConfig));
+        services.Configure<WorkerOptions>(
+            Configuration.GetSection(WorkerOptions.WorkerConfig));
         services.AddDbContextFactory<MarketContext>(options =>
             options
-                .UseNpgsql(connectionString)
+                .UseNpgsql(Configuration.GetConnectionString("MARKET"))
                 .UseLowerCaseNamingConvention()
                 .ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))
         );
         services.AddSingleton<RpcClient>();
         services.AddSingleton<Receiver>();
-        services.AddHostedService<ShopWorker>();
-        services.AddHostedService<ProductWorker>();
+        WorkerOptions workerOptions = new();
+        Configuration.GetSection(WorkerOptions.WorkerConfig)
+            .Bind(workerOptions);
+        if (workerOptions.SyncShop)
+        {
+            services.AddHostedService<ShopWorker>();
+        }
+
+        if (workerOptions.SyncProduct)
+        {
+            services.AddHostedService<ProductWorker>();
+        }
         services.AddMvc()
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
             );
-        services.AddDbContextFactory<MarketContext>(options =>
-            options
-                .UseNpgsql($"{Environment.GetEnvironmentVariable("MARKET_CONNECTION_STRING")}")
-                .UseLowerCaseNamingConvention()
-        );
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
