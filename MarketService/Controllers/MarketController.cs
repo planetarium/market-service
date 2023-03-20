@@ -109,22 +109,30 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/fav/{ticker}")]
-    public async Task<MarketProductResponse> GetFavProducts(string ticker, int? limit, int? offset)
+    public async Task<MarketProductResponse> GetFavProducts(string ticker, int? limit, int? offset, string? order)
     {
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var cacheKey = $"{ticker}_{queryLimit}_{queryOffset}";
+        var sort = string.IsNullOrEmpty(order) ? "price_desc" : order;
         if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
         {
-            var query = await _dbContext.FungibleAssetValueProducts
+            var query = _dbContext.FungibleAssetValueProducts
                 .AsNoTracking()
-                .Where(p => p.Ticker.StartsWith(ticker) && p.Exist)
-                .OrderByDescending(p => p.RegisteredBlockIndex)
-                .ThenByDescending(p => p.Quantity)
+                .Where(p => p.Ticker.StartsWith(ticker) && p.Exist);
+            switch (sort)
+            {
+                case "price_desc":
+                    query = query.OrderByDescending(p => p.Price);
+                    break;
+                case "price":
+                    query = query.OrderBy(p => p.Price);
+                    break;
+            }
+            queryResult = await query
                 .AsSingleQuery()
                 .ToListAsync();
-            _memoryCache.Set(cacheKey, query, _cacheTime);
-            queryResult = query;
+            _memoryCache.Set(cacheKey, queryResult, _cacheTime);
         }
         return new MarketProductResponse(
             queryResult!.Count,

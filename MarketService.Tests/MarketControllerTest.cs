@@ -136,8 +136,11 @@ public class MarketControllerTest
         await _context.Database.EnsureDeletedAsync();
     }
 
-    [Fact]
-    public async void GetProductsByTicker()
+    [Theory]
+    [InlineData(null, 5, 1)]
+    [InlineData("price_desc", 5, 1)]
+    [InlineData("price", 1, 5)]
+    public async void GetProductsByTicker(string? sort, int firstPrice, int lastPrice)
     {
         await _context.Database.EnsureDeletedAsync();
         await _context.Database.EnsureCreatedAsync();
@@ -146,13 +149,14 @@ public class MarketControllerTest
             "RUNESTONE_FENRIR1", "RUNESTONE_FENRIR2", "RUNESTONE_FENRIR3", RuneHelper.StakeRune.Ticker,
             RuneHelper.DailyRewardRune.Ticker
         };
-        foreach (var ticker in runeTickers)
+        for (var index = 0; index < runeTickers.Length; index++)
         {
+            var ticker = runeTickers[index];
             var product = new FungibleAssetValueProductModel
             {
                 SellerAgentAddress = new PrivateKey().ToAddress(),
                 Quantity = 2,
-                Price = 1,
+                Price = 1 + index,
                 SellerAvatarAddress = new PrivateKey().ToAddress(),
                 DecimalPlaces = 0,
                 Exist = true,
@@ -163,14 +167,18 @@ public class MarketControllerTest
             };
             _context.Products.Add(product);
         }
+
         await _context.SaveChangesAsync();
         var cache = new MemoryCache(new MemoryCacheOptions
         {
             SizeLimit = null,
         });
         var controller = new MarketController(_logger, _context, cache);
-        var response = await controller.GetFavProducts("RUNE", null, 0);
-        Assert.Equal(runeTickers.Length, response.FungibleAssetValueProducts.Count);
+        var response = await controller.GetFavProducts("RUNE", null, 0, sort);
+        var favProducts = response.FungibleAssetValueProducts;
+        Assert.Equal(runeTickers.Length, favProducts.Count);
+        Assert.Equal(firstPrice, favProducts.First().Price);
+        Assert.Equal(lastPrice, favProducts.Last().Price);
     }
 
     [Fact]
