@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
+using Nekoyume.Model.Stat;
 
 namespace MarketService.Controllers;
 
@@ -26,13 +27,14 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/items/{type}")]
-    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order)
+    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat)
     {
         var itemSubType = (ItemSubType) type;
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var sort = string.IsNullOrEmpty(order) ? "cp_desc" : order;
-        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort);
+        var statType = string.IsNullOrEmpty(stat) ? StatType.NONE : Enum.Parse<StatType>(stat, true);
+        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType);
         var totalCount = queryResult.Count;
         return new MarketProductResponse(
             totalCount,
@@ -43,17 +45,23 @@ public class MarketController : ControllerBase
                 .Take(queryLimit));
     }
 
-    private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset, string sort)
+    private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
+        string sort, StatType statType)
     {
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}";
+        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
             var query = _dbContext.ItemProducts
                 .AsNoTracking()
                 .Include(p => p.Skills)
                 .Include(p => p.Stats)
-                .Where(p => p.ItemSubType == itemSubType && p.Exist)
-                .AsSingleQuery();
+                .Where(p => p.ItemSubType == itemSubType && p.Exist);
+            if (statType != StatType.NONE)
+            {
+                query = query.Where(p => p.Stats.Any(s => s.Type == statType));
+            }
+
+            query = query.AsSingleQuery();
             query = sort switch
             {
                 "cp_desc" => query.OrderByDescending(p => p.CombatPoint),
