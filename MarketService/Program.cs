@@ -82,6 +82,7 @@ public class Startup
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
             );
+        services.AddHealthChecks().AddDbContextCheck<MarketContext>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -96,6 +97,10 @@ public class Startup
         // app.UseHttpsRedirection();
         // app.UseAuthorization();
         app.UseRouting();
-        app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+            endpoints.MapHealthChecks("/ping");
+        });
     }
 }
