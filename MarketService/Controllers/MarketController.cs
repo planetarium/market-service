@@ -110,7 +110,7 @@ public class MarketController : ControllerBase
         {
             var query = await _dbContext.FungibleAssetValueProducts
                 .AsNoTracking()
-                .Where(p => p.Ticker == ticker && p.Exist)
+                .Where(p => p.Ticker.StartsWith(ticker) && p.Exist)
                 .OrderByDescending(p => p.RegisteredBlockIndex)
                 .ThenByDescending(p => p.Quantity)
                 .AsSingleQuery()

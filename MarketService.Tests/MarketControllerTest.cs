@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using Libplanet;
 using Libplanet.Crypto;
@@ -132,5 +133,42 @@ public class MarketControllerTest
         Assert.True(cache.TryGetValue(product2.ProductId, out ItemProductModel? cached2));
         Assert.Equal(cached2!.ProductId, product2.ProductId);
         await _context.Database.EnsureDeletedAsync();
+    }
+
+    [Fact]
+    public async void GetProductsByTicker()
+    {
+        await _context.Database.EnsureDeletedAsync();
+        await _context.Database.EnsureCreatedAsync();
+        var runeTickers = new[]
+        {
+            "RUNESTONE_FENRIR1", "RUNESTONE_FENRIR2", "RUNESTONE_FENRIR3", RuneHelper.StakeRune.Ticker,
+            RuneHelper.DailyRewardRune.Ticker
+        };
+        foreach (var ticker in runeTickers)
+        {
+            var product = new FungibleAssetValueProductModel
+            {
+                SellerAgentAddress = new PrivateKey().ToAddress(),
+                Quantity = 2,
+                Price = 1,
+                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                DecimalPlaces = 0,
+                Exist = true,
+                Ticker = ticker,
+                Legacy = false,
+                ProductId = Guid.NewGuid(),
+                RegisteredBlockIndex = 1L,
+            };
+            _context.Products.Add(product);
+        }
+        await _context.SaveChangesAsync();
+        var cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = null,
+        });
+        var controller = new MarketController(_logger, _context, cache);
+        var response = await controller.GetFavProducts("RUNE", null, 0);
+        Assert.Equal(runeTickers.Length, response.FungibleAssetValueProducts.Count);
     }
 }
