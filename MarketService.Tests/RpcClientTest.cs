@@ -388,6 +388,7 @@ public class RpcClientTest
         Assert.True(productModel.Legacy);
         Assert.True(productModel.Exist);
         Assert.True(productModel.Stats.Any());
+        Assert.True(productModel.CombatPoint > 0);
 
         // Cancel order
         shopState.Remove(order, 1L);
@@ -544,6 +545,8 @@ public class RpcClientTest
         var products = context.Products.AsNoTracking().ToList();
         Assert.Equal(100, products.Count);
         Assert.All(products, product => Assert.True(product.Exist));
+        var itemProducts = context.ItemProducts.AsNoTracking().ToList();
+        Assert.All(itemProducts, model => Assert.True(model.CombatPoint > 0));
 
         // Cancel or Buy(deleted from chains)
         foreach (var (key, productsState) in productsStates)

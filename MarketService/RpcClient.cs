@@ -213,7 +213,7 @@ public class RpcClient
                     TradableId = item.TradableId,
                     RegisteredBlockIndex = orderDigest.StartedBlockIndex,
                     Exist = true,
-                    Legacy = true
+                    Legacy = true,
                 };
                 itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
                     crystalMonsterCollectionMultiplierSheet);
@@ -292,9 +292,6 @@ public class RpcClient
                     ItemSubType = item.ItemSubType,
                     TradableId = itemProduct.TradableItem.TradableId,
                     RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
-#pragma warning disable CS0618
-                    CombatPoint = CPHelper.GetCP(itemProduct.TradableItem, costumeStatSheet),
-#pragma warning restore CS0618
                     Exist = true
                 };
 

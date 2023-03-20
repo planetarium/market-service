@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using Libplanet.Assets;
 using MarketService.Response;
 using MarketService.Response.Interface;
+using Nekoyume.Battle;
 using Nekoyume.Helper;
 using Nekoyume.Model;
 using Nekoyume.Model.Elemental;
@@ -65,6 +66,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
     {
         var stats = new List<StatModel>();
+#pragma warning disable CS0618
+        CombatPoint = CPHelper.GetCP(tradableItem, costumeStatSheet);
+#pragma warning restore CS0618
         switch (tradableItem)
         {
             case ItemUsable itemUsable:
