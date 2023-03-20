@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using Libplanet;
 using Libplanet.Crypto;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Nekoyume.Helper;
 using Nekoyume.Model.Item;
+using Nekoyume.Model.Stat;
 using Xunit;
 
 namespace MarketService.Tests;
@@ -62,7 +64,7 @@ public class MarketControllerTest
             SizeLimit = null,
         });
         var controller = new MarketController(_logger, _context, cache);
-        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null);
+        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, null);
         var result = Assert.Single(response.ItemProducts);
         Assert.IsType<ItemProductResponseModel>(result);
         Assert.Equal(product.ProductId, result.ProductId);
@@ -131,6 +133,98 @@ public class MarketControllerTest
         Assert.True(cache.TryGetValue(product.ProductId, out _));
         Assert.True(cache.TryGetValue(product2.ProductId, out ItemProductModel? cached2));
         Assert.Equal(cached2!.ProductId, product2.ProductId);
+        await _context.Database.EnsureDeletedAsync();
+    }
+
+    [Fact]
+    public async void GetProductsByTicker()
+    {
+        await _context.Database.EnsureDeletedAsync();
+        await _context.Database.EnsureCreatedAsync();
+        var runeTickers = new[]
+        {
+            "RUNESTONE_FENRIR1", "RUNESTONE_FENRIR2", "RUNESTONE_FENRIR3", RuneHelper.StakeRune.Ticker,
+            RuneHelper.DailyRewardRune.Ticker
+        };
+        foreach (var ticker in runeTickers)
+        {
+            var product = new FungibleAssetValueProductModel
+            {
+                SellerAgentAddress = new PrivateKey().ToAddress(),
+                Quantity = 2,
+                Price = 1,
+                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                DecimalPlaces = 0,
+                Exist = true,
+                Ticker = ticker,
+                Legacy = false,
+                ProductId = Guid.NewGuid(),
+                RegisteredBlockIndex = 1L,
+            };
+            _context.Products.Add(product);
+        }
+        await _context.SaveChangesAsync();
+        var cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = null,
+        });
+        var controller = new MarketController(_logger, _context, cache);
+        var response = await controller.GetFavProducts("RUNE", null, 0);
+        Assert.Equal(runeTickers.Length, response.FungibleAssetValueProducts.Count);
+    }
+
+    [Fact]
+    public async void GetItemProductsByStat()
+    {
+        var productPrice = 3 * CrystalCalculator.CRYSTAL;
+        ProductModel product = new ItemProductModel
+        {
+            SellerAgentAddress = new PrivateKey().ToAddress(),
+            Quantity = 2,
+            Price = decimal.Parse(productPrice.GetQuantityString()),
+            SellerAvatarAddress = new PrivateKey().ToAddress(),
+            ItemId = 3,
+            Exist = true,
+            ItemSubType = ItemSubType.Armor,
+            Stats = new List<StatModel>
+            {
+                new()
+                {
+                    Additional = false,
+                    Type = StatType.HP,
+                    Value = 1
+                },
+                new()
+                {
+                    Additional = true,
+                    Type = StatType.ATK,
+                    Value = 1
+                }
+            }
+        };
+
+
+        await _context.Database.EnsureDeletedAsync();
+        await _context.Database.EnsureCreatedAsync();
+        _context.Products.Add(product);
+        Assert.True(product.Exist);
+        await _context.SaveChangesAsync();
+        var cache = new MemoryCache(new MemoryCacheOptions
+        {
+            SizeLimit = null,
+        });
+        var controller = new MarketController(_logger, _context, cache);
+        foreach (var stat in new [] {"atk", "ATK", "HP", "hp", "Hp", "Atk", null })
+        {
+            var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, stat);
+            var result = Assert.Single(response.ItemProducts);
+            Assert.IsType<ItemProductResponseModel>(result);
+            Assert.Equal(product.ProductId, result.ProductId);
+            Assert.Equal(2, result.Quantity);
+            Assert.Equal(3, result.Price);
+        }
+        var response2 = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, "DEF");
+        Assert.Empty(response2.ItemProducts);
         await _context.Database.EnsureDeletedAsync();
     }
 }
