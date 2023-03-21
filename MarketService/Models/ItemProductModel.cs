@@ -73,6 +73,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
         {
             case ItemUsable itemUsable:
             {
+                Grade = itemUsable.Grade;
+                ElementalType = itemUsable.ElementalType;
                 var map = itemUsable.StatsMap;
                 var additionalStats = map.GetAdditionalStats(true).Select(s => new StatModel
                 {
@@ -90,10 +92,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
                 stats.AddRange(baseStats);
                 if (itemUsable is Equipment equipment)
                 {
-                    ElementalType = equipment.ElementalType;
                     SetId = equipment.SetId;
                     Level = equipment.level;
-                    Grade = equipment.Grade;
                     var skillModels = new List<SkillModel>();
                     skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
                     {
@@ -138,6 +138,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
             }
             case Costume costume:
             {
+                Grade = costume.Grade;
+                ElementalType = costume.ElementalType;
                 var statsMap = new StatsMap();
                 foreach (var row in costumeStatSheet.OrderedList!.Where(r => r.CostumeId == costume.Id))
                 {

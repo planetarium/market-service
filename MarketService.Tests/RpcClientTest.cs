@@ -23,6 +23,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nekoyume;
 using Nekoyume.Action;
+using Nekoyume.Model.Elemental;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
@@ -50,7 +51,7 @@ public class RpcClientTest
     {
         _testService = new TestService();
         _row = new EquipmentItemSheet.Row();
-        _row.Set(@"10200000,Armor,0,Normal,0,HP,30,2,Character/Player/10200000".Split(","));
+        _row.Set(@"10200000,Armor,1,Normal,0,HP,30,2,Character/Player/10200000".Split(","));
         _crystalEquipmentGrindingSheet = new CrystalEquipmentGrindingSheet();
         _crystalEquipmentGrindingSheet.Set(@"id,enchant_base_id,gain_crystal
 10100000,10100000,10
@@ -348,18 +349,21 @@ public class RpcClientTest
         _testService.SetOrder(order);
         var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
         var shopState = new ShardedShopStateV2(shopAddress);
-        ITradableItem item = null!;
+        ITradableItem tradableItem = null!;
+        ItemBase item = null!;
         if (itemSubType == ItemSubType.Armor)
         {
-            item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+            tradableItem = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         }
 
         if (itemSubType == ItemSubType.FullCostume)
         {
             var costumeId = 40100007;
             var row = _costumeItemSheet.Values.First(r => r.Id == costumeId);
-            item = ItemFactory.CreateCostume(row, order.TradableId);
+            tradableItem = ItemFactory.CreateCostume(row, order.TradableId);
         }
+
+        item = (ItemBase) tradableItem;
 
         var orderDigest = new OrderDigest(
             agentAddress,
@@ -370,12 +374,12 @@ public class RpcClientTest
             order.Price,
             0,
             0,
-            ((ItemBase) item).Id,
+            item.Id,
             1
         );
         shopState.Add(orderDigest, 0L);
         _testService.SetState(shopAddress, shopState.Serialize());
-        _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
+        _testService.SetState(Addresses.GetItemAddress(tradableItem.TradableId), tradableItem.Serialize());
 
         // Insert order
         var orderDigestList = await _client.GetOrderDigests(itemSubType, null!);
@@ -389,6 +393,8 @@ public class RpcClientTest
         Assert.True(productModel.Exist);
         Assert.True(productModel.Stats.Any());
         Assert.True(productModel.CombatPoint > 0);
+        Assert.Equal(item.Grade, productModel.Grade);
+        Assert.Equal(item.ElementalType, productModel.ElementalType);
 
         // Cancel order
         shopState.Remove(order, 1L);
@@ -516,7 +522,7 @@ public class RpcClientTest
             {
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
-                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L);
+                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
                 var itemProduct = new ItemProduct
                 {
                     ProductId = productId,
@@ -544,9 +550,16 @@ public class RpcClientTest
 #pragma warning restore EF1001
         var products = context.Products.AsNoTracking().ToList();
         Assert.Equal(100, products.Count);
-        Assert.All(products, product => Assert.True(product.Exist));
-        var itemProducts = context.ItemProducts.AsNoTracking().ToList();
-        Assert.All(itemProducts, model => Assert.True(model.CombatPoint > 0));
+        foreach (var product in products)
+        {
+            Assert.True(product.Exist);
+            if (product is ItemProductModel itemProduct)
+            {
+                Assert.True(itemProduct.CombatPoint > 0);
+                Assert.True(itemProduct.Level > 0);
+                Assert.Equal(1, itemProduct.Grade);
+            }
+        }
 
         // Cancel or Buy(deleted from chains)
         foreach (var (key, productsState) in productsStates)
