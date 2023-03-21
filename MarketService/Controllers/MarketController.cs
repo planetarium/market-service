@@ -113,8 +113,8 @@ public class MarketController : ControllerBase
     {
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
-        var cacheKey = $"{ticker}_{queryLimit}_{queryOffset}";
         var sort = string.IsNullOrEmpty(order) ? "price_desc" : order;
+        var cacheKey = $"{ticker}_{queryLimit}_{queryOffset}_{sort}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
         {
             var query = _dbContext.FungibleAssetValueProducts
