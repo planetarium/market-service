@@ -6,10 +6,10 @@ namespace MarketService;
 
 public class ProductWorker : BackgroundService
 {
-    private readonly ILogger<ShopWorker> _logger;
+    private readonly ILogger<ProductWorker> _logger;
     private readonly RpcClient _rpcClient;
 
-    public ProductWorker(ILogger<ShopWorker> logger, RpcClient client)
+    public ProductWorker(ILogger<ProductWorker> logger, RpcClient client)
     {
         _logger = logger;
         _rpcClient = client;
