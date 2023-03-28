@@ -33,6 +33,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
     [NotMapped]
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
+    public int OptionCountFromCombination { get; set; }
+
     public ItemProductResponseModel ToResponse()
     {
         return new ItemProductResponseModel
@@ -58,6 +60,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
             StatModels = Stats.OfType<IStatModel>().Select(s => s.ToResponse()).ToList(),
             Crystal = Crystal,
             CrystalPerPrice = CrystalPerPrice,
+            OptionCountFromCombination = OptionCountFromCombination,
         };
     }
 
@@ -94,6 +97,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
                 {
                     SetId = equipment.SetId;
                     Level = equipment.level;
+                    OptionCountFromCombination = equipment.optionCountFromCombination;
                     var skillModels = new List<SkillModel>();
                     skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
                     {
