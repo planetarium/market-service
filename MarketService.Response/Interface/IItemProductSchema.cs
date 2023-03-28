@@ -18,4 +18,5 @@ public interface IItemProductSchema : IProductSchema
     public int CrystalPerPrice { get; set; }
     public ICollection<SkillResponseModel> SkillModels { get; }
     public ICollection<StatResponseModel> StatModels { get; }
+    public int OptionCountFromCombination { get; set; }
 }

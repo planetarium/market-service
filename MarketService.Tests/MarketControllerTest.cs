@@ -51,7 +51,8 @@ public class MarketControllerTest
             SellerAvatarAddress = new PrivateKey().ToAddress(),
             ItemId = 3,
             Exist = true,
-            ItemSubType = ItemSubType.Armor
+            ItemSubType = ItemSubType.Armor,
+            OptionCountFromCombination = 1
         };
 
         await _context.Database.EnsureDeletedAsync();
@@ -70,6 +71,7 @@ public class MarketControllerTest
         Assert.Equal(product.ProductId, result.ProductId);
         Assert.Equal(2, result.Quantity);
         Assert.Equal(3, result.Price);
+        Assert.Equal(1, result.OptionCountFromCombination);
        var json = JsonSerializer.Serialize(result);
         var des = JsonSerializer.Deserialize<ItemProductResponseModel>(json);
         Assert.NotNull(des);

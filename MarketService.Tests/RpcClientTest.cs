@@ -431,6 +431,7 @@ public class RpcClientTest
         var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
         var shopState = new ShardedShopStateV2(shopAddress);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+        ((Equipment) item).optionCountFromCombination = 1;
         var orderDigest = new OrderDigest(
             agentAddress,
             0L,
@@ -454,9 +455,10 @@ public class RpcClientTest
         Assert.Single(chainIds);
         await _client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
-        var productModel = Assert.Single(context.Products);
+        var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
         Assert.True(productModel.Exist);
+        Assert.Equal(1, productModel.OptionCountFromCombination);
 
         // ReRegister order
         shopState.Remove(order, 1L);
