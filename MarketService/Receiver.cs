@@ -29,20 +29,6 @@ public class Receiver : IActionEvaluationHubReceiver
 
     public void OnRenderBlock(byte[] oldTip, byte[] newTip)
     {
-        var stopWatch = new Stopwatch();
-        _logger.LogDebug("Start {Method}", nameof(OnRenderBlock));
-        stopWatch.Start();
-        var codec = new Codec();
-        var oldBlock = BlockMarshaler.UnmarshalBlock<PolymorphicAction<ActionBase>>((Dictionary) codec.Decode(oldTip));
-        var newBlock = BlockMarshaler.UnmarshalBlock<PolymorphicAction<ActionBase>>((Dictionary) codec.Decode(newTip));
-        stopWatch.Stop();
-        var ts = stopWatch.Elapsed;
-
-        // _logger.LogInformation(
-        //     "Block render from {OldTipIndex} to {NewTipIndex} at {TimeTaken}",
-        //     oldBlock.Index,
-        //     newBlock.Index,
-        //                 ts);
     }
 
     public void OnReorged(byte[] oldTip, byte[] newTip, byte[] branchpoint)
