@@ -17,7 +17,7 @@ you can edit launchSettings.json for run configuration and run service.
 |---------------------------|------------------------------------------------------------|
 | ConnectionStrings__MARKET | database path for market service                           |
 | RpcConfig__Host           | NineChronicles.Headless node host for sync market products |
-| RpcConfig__Port           | NineChronciles.Headless node port                          |
+| RpcConfig__Port           | NineChronicles.Headless node port                          |
 | WorkerConfig__SyncShop    | if true, sync registered ShardedShopStateV2 Orders         |
 | WorkerConfig__SyncProduct | if true, sync registered MarketState Products              |
 
