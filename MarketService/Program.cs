@@ -88,14 +88,11 @@ public class Startup
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
 // Configure the HTTP request pipeline.h
-        // if (env.IsDevelopment())
-        // {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-        // }
-
-        // app.UseHttpsRedirection();
-        // app.UseAuthorization();
+        if (env.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
         app.UseRouting();
         app.UseEndpoints(endpoints =>
         {
