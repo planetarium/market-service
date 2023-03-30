@@ -17,7 +17,11 @@
       "applicationUrl": "https://localhost:7114;http://localhost:5047",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "MARKET_CONNECTION_STRING": "Host=localhost;Username=postgres;Database=market"
+        "ConnectionStrings__MARKET": "Host=localhost;Username=postgres;Database=market",
+        "RpcConfig__Host": "9c-main-test-1.nine-chronicles.com",
+        "RpcConfig__Port": "31238",
+        "WorkerConfig__SyncShop": "true",
+        "WorkerConfig__SyncProduct": "false"
       }
     },
     "IIS Express": {
