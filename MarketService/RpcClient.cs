@@ -150,7 +150,7 @@ public class RpcClient
         var marketContext = await _contextFactory.CreateDbContextAsync();
         var existIds = marketContext.Database
             .SqlQueryRaw<Guid>(
-                $"Select productid from products where exist = {true} and legacy = {true}")
+                $"Select productid from products where legacy = {true}")
             .ToList();
         var deletedIds = existIds.Where(i => !chainIds.Contains(i)).ToList();
         var orderIds = chainIds.Where(i => !existIds.Contains(i)).ToList();
@@ -244,7 +244,7 @@ public class RpcClient
             var marketContext = await _contextFactory.CreateDbContextAsync();
             var existIds = marketContext.Database
                 .SqlQueryRaw<Guid>(
-                    $"Select productid from products where exist = {true} and legacy = {false}")
+                    $"Select productid from products where legacy = {false}")
                 .ToList();
             foreach (var kv in productStates)
             {
