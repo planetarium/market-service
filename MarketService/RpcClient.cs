@@ -148,12 +148,49 @@ public class RpcClient
         sw.Start();
         _logger.LogInformation("Start SyncOrder");
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var existIds = marketContext.Database
-            .SqlQueryRaw<Guid>(
-                $"Select productid from products where legacy = {true}")
-            .ToList();
+        var productInfos = await marketContext.Products.AsNoTracking().Where(p => p.Legacy)
+            .Select(p => new {p.ProductId, p.Exist}).ToListAsync();
+        var existIds = new List<Guid>();
+        var restoreIds = new List<Guid>();
+        var orderIds = new List<Guid>();
+        var avatarAddresses = await marketContext.Products.AsNoTracking().Select(p => p.SellerAvatarAddress).Distinct()
+            .ToListAsync();
+        foreach (var productInfo in productInfos)
+        {
+            existIds.Add(productInfo.ProductId);
+        }
+
+        var orderDigests = await GetOrderDigests(avatarAddresses, hashBytes);
+        foreach (var orderDigest in orderDigests)
+        {
+            var orderId = orderDigest.OrderId;
+            if (!chainIds.Contains(orderId))
+            {
+                chainIds.Add(orderId);
+            }
+
+            if (!orderDigestList.Contains(orderDigest))
+            {
+                orderDigestList.Add(orderDigest);
+            }
+        }
+        foreach (var orderId in chainIds)
+        {
+            if (!existIds.Contains(orderId))
+            {
+                orderIds.Add(orderId);
+            }
+            else
+            {
+                var productInfo = productInfos.First(p => p.ProductId == orderId);
+                // Invalid state. restore product.
+                if (!productInfo.Exist)
+                {
+                    restoreIds.Add(productInfo.ProductId);
+                }
+            }
+        }
         var deletedIds = existIds.Where(i => !chainIds.Contains(i)).ToList();
-        var orderIds = chainIds.Where(i => !existIds.Contains(i)).ToList();
         var tradableIds = new List<Guid>();
         foreach (var digest in orderDigestList)
         {
@@ -162,14 +199,18 @@ public class RpcClient
                 tradableIds.Add(digest.TradableId);
             }
         }
-
+        _logger.LogInformation("DeletedCounts: {Count}", deletedIds.Count);
+        _logger.LogInformation("RestoreCounts: {Count}", restoreIds.Count());
+        _logger.LogInformation("OrderCounts: {Count}", orderIds.Count());
         sw.Stop();
         await InsertOrders(hashBytes, orderIds, tradableIds, marketContext, orderDigestList,
             crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
         await UpdateProducts(deletedIds, marketContext, true);
+        await UpdateProducts(restoreIds, marketContext, true, true);
     }
 
-    public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy)
+    public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy,
+        bool exist = false)
     {
         await marketContext.Database.BeginTransactionAsync();
         // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
@@ -177,7 +218,7 @@ public class RpcClient
         {
             var param = new NpgsqlParameter("@targetIds", deletedIds);
             await marketContext.Database.ExecuteSqlRawAsync(
-                $"UPDATE products set exist = {false} WHERE legacy = {legacy} and productid = any(@targetIds)",
+                $"UPDATE products set exist = {exist} WHERE legacy = {legacy} and productid = any(@targetIds)",
                 param);
         }
 
@@ -292,7 +333,7 @@ public class RpcClient
                     ItemSubType = item.ItemSubType,
                     TradableId = itemProduct.TradableItem.TradableId,
                     RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
-                    Exist = true
+                    Exist = true,
                 };
 
                 itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
@@ -317,7 +358,7 @@ public class RpcClient
                     Quantity = decimal.Parse(asset.GetQuantityString()),
                     RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
                     SellerAgentAddress = favProduct.SellerAgentAddress,
-                    Ticker = asset.Currency.Ticker
+                    Ticker = asset.Currency.Ticker,
                 };
                 productBag.Add(favProductModel);
             });
@@ -483,5 +524,25 @@ public class RpcClient
         if (value is List list) return new MarketState(list);
 
         return new MarketState();
+    }
+
+    public async Task<List<OrderDigest>> GetOrderDigests(List<Address> avatarAddresses, byte[] hashBytes)
+    {
+        var digestListStateAddresses =
+            avatarAddresses.Select(a => OrderDigestListState.DeriveAddress(a).ToByteArray()).ToList();
+        var digestListStateResult = await GetStates(digestListStateAddresses, hashBytes);
+        var orderDigests = new ConcurrentBag<OrderDigest>();
+        Parallel.ForEach(digestListStateResult.Values, _parallelOptions, value =>
+        {
+            if (value is Dictionary dictionary)
+            {
+                var digestListState = new OrderDigestListState(dictionary);
+                foreach (var orderDigest in digestListState.OrderDigestList)
+                {
+                    orderDigests.Add(orderDigest);
+                }
+            }
+        });
+        return orderDigests.ToList();
     }
 }
