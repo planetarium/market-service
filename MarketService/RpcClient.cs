@@ -539,7 +539,10 @@ public class RpcClient
                 var digestListState = new OrderDigestListState(dictionary);
                 foreach (var orderDigest in digestListState.OrderDigestList)
                 {
-                    orderDigests.Add(orderDigest);
+                    if (orderDigest.StartedBlockIndex > ActionObsoleteConfig.V100080ObsoleteIndex)
+                    {
+                        orderDigests.Add(orderDigest);
+                    }
                 }
             }
         });
