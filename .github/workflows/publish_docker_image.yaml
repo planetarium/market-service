@@ -3,6 +3,7 @@ on:
     branches:
       - main
       - 2023q1-previewnet
+      - rc-*
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:
