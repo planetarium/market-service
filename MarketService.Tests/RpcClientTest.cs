@@ -351,8 +351,6 @@ public class RpcClientTest
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
-        var shopState = new ShardedShopStateV2(shopAddress);
         ITradableItem tradableItem = null!;
         ItemBase item = null!;
         if (itemSubType == ItemSubType.Armor)
@@ -368,11 +366,12 @@ public class RpcClientTest
         }
 
         item = (ItemBase) tradableItem;
+        var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
 
         var orderDigest = new OrderDigest(
             agentAddress,
-            0L,
-            Order.ExpirationInterval,
+            blockIndex,
+            blockIndex + Order.ExpirationInterval,
             order.OrderId,
             order.TradableId,
             order.Price,
@@ -381,15 +380,16 @@ public class RpcClientTest
             item.Id,
             1
         );
-        shopState.Add(orderDigest, 0L);
-        _testService.SetState(shopAddress, shopState.Serialize());
         _testService.SetState(Addresses.GetItemAddress(tradableItem.TradableId), tradableItem.Serialize());
+        SetShopStates(itemSubType, orderDigest);
+        var agentState = new AgentState(agentAddress);
+        agentState.avatarAddresses.Add(0, avatarAddress);
+        _testService.SetState(agentAddress, agentState.Serialize());
+        var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
+        orderDigestListState.Add(orderDigest);
+        _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
 
         // Insert order
-        var orderDigestList = await _client.GetOrderDigests(itemSubType, null!);
-        Assert.Single(orderDigestList);
-        var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
-        Assert.Single(chainIds);
         await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
@@ -401,12 +401,8 @@ public class RpcClientTest
         Assert.Equal(item.ElementalType, productModel.ElementalType);
 
         // Cancel order
-        shopState.Remove(order, 1L);
-        _testService.SetState(shopAddress, shopState.Serialize());
-        var newOrderDigestList = await _client.GetOrderDigests(itemSubType, null!);
-        Assert.Empty(newOrderDigestList);
-        var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
-        Assert.Empty(newChainIds);
+        orderDigestListState.Remove(orderDigest.OrderId);
+        _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
         await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
@@ -432,14 +428,13 @@ public class RpcClientTest
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
-        var shopAddress = ShardedShopStateV2.DeriveAddress(itemSubType, order.OrderId);
-        var shopState = new ShardedShopStateV2(shopAddress);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         ((Equipment) item).optionCountFromCombination = 1;
+        var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
         var orderDigest = new OrderDigest(
             agentAddress,
-            0L,
-            Order.ExpirationInterval,
+            blockIndex,
+            blockIndex + Order.ExpirationInterval,
             order.OrderId,
             order.TradableId,
             order.Price,
@@ -448,15 +443,17 @@ public class RpcClientTest
             item.Id,
             1
         );
-        shopState.Add(orderDigest, 0L);
-        _testService.SetState(shopAddress, shopState.Serialize());
+        SetShopStates(itemSubType, orderDigest);
         _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
 
+        var agentState = new AgentState(agentAddress);
+        agentState.avatarAddresses.Add(0, avatarAddress);
+        _testService.SetState(agentAddress, agentState.Serialize());
+        var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
+        orderDigestListState.Add(orderDigest);
+        _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
+
         // Insert order
-        var orderDigestList = await _client.GetOrderDigests(itemSubType, null!);
-        Assert.Single(orderDigestList);
-        var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
-        Assert.Single(chainIds);
         await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
@@ -465,18 +462,13 @@ public class RpcClientTest
         Assert.Equal(1, productModel.OptionCountFromCombination);
 
         // ReRegister order
-        shopState.Remove(order, 1L);
-        _testService.SetState(shopAddress, shopState.Serialize());
-
         var order2 = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 2 * _currency, order.TradableId,
             1L,
             itemSubType, 1);
-        var shopAddress2 = ShardedShopStateV2.DeriveAddress(itemSubType, order2.OrderId);
-        var shopState2 = new ShardedShopStateV2(shopAddress2);
         var orderDigest2 = new OrderDigest(
             agentAddress,
-            1L,
-            Order.ExpirationInterval + 1L,
+            blockIndex + 1L,
+            blockIndex + Order.ExpirationInterval + 1L,
             order2.OrderId,
             order2.TradableId,
             order2.Price,
@@ -485,14 +477,11 @@ public class RpcClientTest
             item.Id,
             1
         );
-        shopState2.Add(orderDigest2, 1L);
+        orderDigestListState.Remove(orderDigest.OrderId);
+        orderDigestListState.Add(orderDigest2);
         _testService.SetState(Order.DeriveAddress(order2.OrderId), order2.Serialize());
-        _testService.SetState(shopAddress2, shopState2.Serialize());
+        _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
 
-        var newOrderDigestList = await _client.GetOrderDigests(itemSubType, null!);
-        Assert.Single(newOrderDigestList);
-        var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
-        Assert.Single(newChainIds);
         await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
@@ -806,6 +795,41 @@ public class RpcClientTest
         public void SetState(Address address, IValue value)
         {
             _states = _states.SetState(address, value);
+        }
+    }
+
+    private void SetShopStates(ItemSubType itemSubType, OrderDigest orderDigest)
+    {
+        var itemSubTypes = new[]
+        {
+            ItemSubType.Weapon,
+            ItemSubType.Armor,
+            ItemSubType.Belt,
+            ItemSubType.Necklace,
+            ItemSubType.Ring,
+            ItemSubType.Food,
+            ItemSubType.Hourglass,
+            ItemSubType.ApStone,
+            ItemSubType.FullCostume,
+            ItemSubType.HairCostume,
+            ItemSubType.EarCostume,
+            ItemSubType.EyeCostume,
+            ItemSubType.TailCostume,
+            ItemSubType.Title
+        };
+
+        foreach (var type in itemSubTypes)
+        {
+            var shopAddresses = _client.GetShopAddress(type).Select(a => new Address(a)).ToArray();
+            foreach (var shopAddress in shopAddresses)
+            {
+                var shopState = new ShardedShopStateV2(shopAddress);
+                if (type == itemSubType && shopAddress == ShardedShopStateV2.DeriveAddress(type, orderDigest.OrderId))
+                {
+                    shopState.Add(orderDigest, 0L);
+                }
+                _testService.SetState(shopAddress, shopState.Serialize());
+            }
         }
     }
 }

@@ -165,6 +165,52 @@ public class RpcClient
                 avatarAddresses.Add(productInfo.SellerAvatarAddress);
             }
         }
+
+        if (!avatarAddresses.Any())
+        {
+            var itemSubTypes = new[]
+            {
+                ItemSubType.Weapon,
+                ItemSubType.Armor,
+                ItemSubType.Belt,
+                ItemSubType.Necklace,
+                ItemSubType.Ring,
+                ItemSubType.Food,
+                ItemSubType.Hourglass,
+                ItemSubType.ApStone,
+                ItemSubType.FullCostume,
+                ItemSubType.HairCostume,
+                ItemSubType.EarCostume,
+                ItemSubType.EyeCostume,
+                ItemSubType.TailCostume,
+                ItemSubType.Title
+            };
+
+            var agentAddresses = new ConcurrentBag<Address>();
+            await Parallel.ForEachAsync(itemSubTypes, _parallelOptions, async (itemSubType, st) =>
+            {
+                var list = await GetOrderDigests(itemSubType, hashBytes);
+
+                foreach (var digest in list)
+                {
+                    var agentAddress = digest.SellerAgentAddress;
+                    if (!agentAddresses.Contains(agentAddress))
+                    {
+                        agentAddresses.Add(agentAddress);
+                    }
+                }
+            });
+
+            var states = await GetStates(agentAddresses.Select(a => a.ToByteArray()).ToList(), hashBytes);
+            Parallel.ForEach(states.Values, _parallelOptions, value =>
+            {
+                if (value is Dictionary d)
+                {
+                    var agentState = new AgentState(d);
+                    avatarAddresses.AddRange(agentState.avatarAddresses.Values);
+                }
+            });
+        }
         sw.Stop();
         _logger.LogDebug("Set existIds, avatarAddresses: {Ts}", sw.Elapsed);
         sw.Restart();
