@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Lib9c.Model.Order;
+using Libplanet;
 using Nekoyume.Model.Item;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
@@ -24,27 +25,6 @@ public class ShopWorker : BackgroundService
 #pragma warning disable CS4014
         _rpcClient.StartAsync(stoppingToken);
 #pragma warning restore CS4014
-        var itemSubTypes = new[]
-        {
-            ItemSubType.Weapon,
-            ItemSubType.Armor,
-            ItemSubType.Belt,
-            ItemSubType.Necklace,
-            ItemSubType.Ring,
-            ItemSubType.Food,
-            ItemSubType.Hourglass,
-            ItemSubType.ApStone,
-            ItemSubType.FullCostume,
-            ItemSubType.HairCostume,
-            ItemSubType.EarCostume,
-            ItemSubType.EyeCostume,
-            ItemSubType.TailCostume,
-            ItemSubType.Title
-        };
-        var parallelOptions = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = 8
-        };
         while (true)
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
@@ -60,25 +40,13 @@ public class ShopWorker : BackgroundService
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
             var costumeStatSheet = await _rpcClient.GetSheet<CostumeStatSheet>(hashBytes);
-            var chainIds = new ConcurrentBag<Guid>();
-            var orderDigestList = new ConcurrentBag<OrderDigest>();
-            await Parallel.ForEachAsync(itemSubTypes, parallelOptions, async (itemSubType, st) =>
-            {
-                var list = await _rpcClient.GetOrderDigests(itemSubType, hashBytes);
-
-                foreach (var digest in list)
-                {
-                    chainIds.Add(digest.OrderId);
-                    orderDigestList.Add(digest);
-                }
-            });
-            await _rpcClient.SyncOrder(chainIds.ToList(), orderDigestList.ToList(), hashBytes,
+            await _rpcClient.SyncOrder(hashBytes,
                 crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet, costumeStatSheet);
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            _logger.LogInformation("Complete sync shop({TotalCount}). {TotalElapsed}", orderDigestList.Count, ts);
+            _logger.LogInformation("Complete sync shop. {TotalElapsed}", ts);
             await Task.Delay(3000, stoppingToken);
         }
     }

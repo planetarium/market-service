@@ -11,7 +11,6 @@
     <ItemGroup>
         <PackageReference Include="Contrib.Grpc.Core.M1" Version="2.41.0" />
         <PackageReference Include="EFCore.NamingConventions" Version="7.0.2" />
-        <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="7.0.0" />
         <PackageReference Include="Grpc.Core" Version="2.41.0" />
         <PackageReference Include="Grpc.Core.Api" Version="2.41.0" />
         <PackageReference Include="MagicOnion.Client" Version="5.0.3" />
