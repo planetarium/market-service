@@ -139,7 +139,7 @@ public class RpcClient
         return orderDigestList;
     }
 
-    public async Task SyncOrder(List<Guid> chainIds, List<OrderDigest> orderDigestList, byte[] hashBytes,
+    public async Task SyncOrder(byte[] hashBytes,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
         CostumeStatSheet costumeStatSheet)
@@ -161,19 +161,8 @@ public class RpcClient
         }
 
         var orderDigests = await GetOrderDigests(avatarAddresses, hashBytes);
-        foreach (var orderDigest in orderDigests)
-        {
-            var orderId = orderDigest.OrderId;
-            if (!chainIds.Contains(orderId))
-            {
-                chainIds.Add(orderId);
-            }
-
-            if (!orderDigestList.Contains(orderDigest))
-            {
-                orderDigestList.Add(orderDigest);
-            }
-        }
+        var chainIds = orderDigests.Select(o => o.OrderId).ToList();
+        var orderDigestList = orderDigests;
         foreach (var orderId in chainIds)
         {
             if (!existIds.Contains(orderId))

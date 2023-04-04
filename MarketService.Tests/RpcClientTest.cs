@@ -31,6 +31,7 @@ using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace MarketService.Tests;
 
@@ -46,9 +47,11 @@ public class RpcClientTest
     private readonly Currency _currency;
     private readonly RpcClient _client;
     private readonly DbContextFactory<MarketContext> _contextFactory;
+    private readonly ITestOutputHelper _output;
 
-    public RpcClientTest()
+    public RpcClientTest(ITestOutputHelper output)
     {
+        _output = output;
         _testService = new TestService();
         _row = new EquipmentItemSheet.Row();
         _row.Set(@"10200000,Armor,1,Normal,0,HP,30,2,Character/Player/10200000".Split(","));
@@ -327,8 +330,9 @@ public class RpcClientTest
 #pragma warning restore EF1001
         var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
+        using var logger = _output.BuildLoggerFor<RpcClient>();
         _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            new Logger<RpcClient>(new LoggerFactory()), receiver, _contextFactory, _testService);
+            logger, receiver, _contextFactory, _testService);
     }
 
     [Theory]
@@ -386,7 +390,7 @@ public class RpcClientTest
         Assert.Single(orderDigestList);
         var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(chainIds);
-        await _client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
@@ -403,7 +407,7 @@ public class RpcClientTest
         Assert.Empty(newOrderDigestList);
         var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Empty(newChainIds);
-        await _client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
@@ -453,7 +457,7 @@ public class RpcClientTest
         Assert.Single(orderDigestList);
         var chainIds = orderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(chainIds);
-        await _client.SyncOrder(chainIds, orderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
         var productModel = Assert.Single(context.ItemProducts);
         Assert.True(productModel.Legacy);
@@ -489,7 +493,7 @@ public class RpcClientTest
         Assert.Single(newOrderDigestList);
         var newChainIds = newOrderDigestList.Select(digest => digest.OrderId).ToList();
         Assert.Single(newChainIds);
-        await _client.SyncOrder(newChainIds, newOrderDigestList, null!, _crystalEquipmentGrindingSheet,
+        await _client.SyncOrder(null!, _crystalEquipmentGrindingSheet,
             _crystalMonsterCollectionMultiplierSheet, _costumeStatSheet);
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
