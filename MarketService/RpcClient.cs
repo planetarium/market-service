@@ -148,8 +148,8 @@ public class RpcClient
         sw.Start();
         _logger.LogInformation("Start SyncOrder");
         var marketContext = await _contextFactory.CreateDbContextAsync();
-        var productInfos = await marketContext.Products.AsNoTracking().Where(p => p.Legacy)
-            .Select(p => new {p.ProductId, p.Exist, p.SellerAvatarAddress}).ToListAsync();
+        var productInfos = await marketContext.Products.AsNoTracking()
+            .Select(p => new {p.ProductId, p.Exist, p.SellerAvatarAddress, p.Legacy}).ToListAsync();
         sw.Stop();
         _logger.LogDebug("Get Products: {Ts}", sw.Elapsed);
         sw.Restart();
@@ -159,7 +159,10 @@ public class RpcClient
         var avatarAddresses = new List<Address>();
         foreach (var productInfo in productInfos)
         {
-            existIds.Add(productInfo.ProductId);
+            if (productInfo.Legacy)
+            {
+                existIds.Add(productInfo.ProductId);
+            }
             if (!avatarAddresses.Contains(productInfo.SellerAvatarAddress))
             {
                 avatarAddresses.Add(productInfo.SellerAvatarAddress);
@@ -229,7 +232,7 @@ public class RpcClient
             }
             else
             {
-                var productInfo = productInfos.First(p => p.ProductId == orderId);
+                var productInfo = productInfos.First(p => p.ProductId == orderId && p.Legacy);
                 // Invalid state. restore product.
                 if (!productInfo.Exist)
                 {
