@@ -74,6 +74,12 @@ public class MarketController : ControllerBase
                 "crystal" => query.OrderBy(p => p.Crystal),
                 "crystal_per_price_desc" => query.OrderByDescending(p => p.CrystalPerPrice),
                 "crystal_per_price" => query.OrderBy(p => p.CrystalPerPrice),
+                "level_desc" => query.OrderByDescending(p => p.Level),
+                "level" => query.OrderBy(p => p.Level),
+                "opt_count_desc" => query.OrderByDescending(p => p.OptionCountFromCombination),
+                "opt_count" => query.OrderBy(p => p.OptionCountFromCombination),
+                "ppu_desc" => query.OrderByDescending(p => p.Price / p.Quantity),
+                "ppu" => query.OrderBy(p => p.Price / p.Quantity),
                 _ => query
             };
             var result = await query.ToListAsync();
