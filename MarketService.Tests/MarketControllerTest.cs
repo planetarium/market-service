@@ -65,7 +65,7 @@ public class MarketControllerTest
             SizeLimit = null,
         });
         var controller = new MarketController(_logger, _context, cache);
-        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, null);
+        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, null, Array.Empty<int>());
         var result = Assert.Single(response.ItemProducts);
         Assert.IsType<ItemProductResponseModel>(result);
         Assert.Equal(product.ProductId, result.ProductId);
@@ -226,14 +226,14 @@ public class MarketControllerTest
         var controller = new MarketController(_logger, _context, cache);
         foreach (var stat in new [] {"atk", "ATK", "HP", "hp", "Hp", "Atk", null })
         {
-            var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, stat);
+            var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, stat, Array.Empty<int>());
             var result = Assert.Single(response.ItemProducts);
             Assert.IsType<ItemProductResponseModel>(result);
             Assert.Equal(product.ProductId, result.ProductId);
             Assert.Equal(2, result.Quantity);
             Assert.Equal(3, result.Price);
         }
-        var response2 = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, "DEF");
+        var response2 = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, "DEF", Array.Empty<int>());
         Assert.Empty(response2.ItemProducts);
         await _context.Database.EnsureDeletedAsync();
     }
