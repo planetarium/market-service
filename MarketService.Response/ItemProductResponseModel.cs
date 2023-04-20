@@ -30,6 +30,7 @@ namespace MarketService.Response
         public ICollection<SkillResponseModel> SkillModels { get; set; }
         public ICollection<StatResponseModel> StatModels { get; set; }
         public int OptionCountFromCombination { get; set; }
+        public decimal UnitPrice { get; set; }
         public int Crystal { get; set; }
         public int CrystalPerPrice { get; set; }
     }

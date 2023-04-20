@@ -3,7 +3,6 @@ using MarketService.Models;
 using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Stat;
@@ -83,8 +82,8 @@ public class MarketController : ControllerBase
                 "level" => query.OrderBy(p => p.Level),
                 "opt_count_desc" => query.OrderByDescending(p => p.OptionCountFromCombination),
                 "opt_count" => query.OrderBy(p => p.OptionCountFromCombination),
-                "ppu_desc" => query.OrderByDescending(p => p.Price / p.Quantity),
-                "ppu" => query.OrderBy(p => p.Price / p.Quantity),
+                "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice),
+                "unit_price" => query.OrderBy(p => p.UnitPrice),
                 _ => query
             };
             var result = await query.ToListAsync();

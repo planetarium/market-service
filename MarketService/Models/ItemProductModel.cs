@@ -34,6 +34,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
     public int OptionCountFromCombination { get; set; }
+    [NotMapped]
+    public decimal UnitPrice => Price / Quantity;
 
     public ItemProductResponseModel ToResponse()
     {
@@ -61,6 +63,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
             Crystal = Crystal,
             CrystalPerPrice = CrystalPerPrice,
             OptionCountFromCombination = OptionCountFromCombination,
+            UnitPrice = UnitPrice,
         };
     }
 

@@ -43,7 +43,7 @@ public class MarketControllerTest
     public async void GetItemProducts()
     {
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
-        ProductModel product = new ItemProductModel
+        ItemProductModel product = new ItemProductModel
         {
             SellerAgentAddress = new PrivateKey().ToAddress(),
             Quantity = 2,
@@ -54,7 +54,7 @@ public class MarketControllerTest
             ItemSubType = ItemSubType.Armor,
             OptionCountFromCombination = 1
         };
-
+        Assert.Equal(1.5m, product.UnitPrice);
         await _context.Database.EnsureDeletedAsync();
         await _context.Database.EnsureCreatedAsync();
         _context.Products.Add(product);
@@ -72,6 +72,7 @@ public class MarketControllerTest
         Assert.Equal(2, result.Quantity);
         Assert.Equal(3, result.Price);
         Assert.Equal(1, result.OptionCountFromCombination);
+        Assert.Equal(1.5m, result.UnitPrice);
        var json = JsonSerializer.Serialize(result);
         var des = JsonSerializer.Deserialize<ItemProductResponseModel>(json);
         Assert.NotNull(des);
