@@ -156,7 +156,7 @@ public class RpcClient
         var existIds = new List<Guid>();
         var restoreIds = new ConcurrentBag<Guid>();
         var orderIds = new ConcurrentBag<Guid>();
-        var avatarAddresses = new List<Address>();
+        var avatarAddresses = new ConcurrentBag<Address>();
         foreach (var productInfo in productInfos)
         {
             if (productInfo.Legacy)
@@ -210,7 +210,10 @@ public class RpcClient
                 if (value is Dictionary d)
                 {
                     var agentState = new AgentState(d);
-                    avatarAddresses.AddRange(agentState.avatarAddresses.Values);
+                    foreach (var avatatarAddress in agentState.avatarAddresses.Values)
+                    {
+                        avatarAddresses.Add(avatatarAddress);
+                    }
                 }
             });
         }
@@ -218,7 +221,7 @@ public class RpcClient
         _logger.LogDebug("Set existIds, avatarAddresses: {Ts}", sw.Elapsed);
         sw.Restart();
 
-        var orderDigests = await GetOrderDigests(avatarAddresses, hashBytes);
+        var orderDigests = await GetOrderDigests(avatarAddresses.ToList(), hashBytes);
         sw.Stop();
         _logger.LogDebug("Get OrderDigests: {Ts}", sw.Elapsed);
         sw.Restart();
