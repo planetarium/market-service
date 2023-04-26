@@ -52,7 +52,8 @@ public class MarketControllerTest
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor,
-            OptionCountFromCombination = 1
+            OptionCountFromCombination = 1,
+            UnitPrice = 3m / 2,
         };
         Assert.Equal(1.5m, product.UnitPrice);
         await _context.Database.EnsureDeletedAsync();
