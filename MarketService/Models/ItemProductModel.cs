@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using Libplanet.Assets;
 using MarketService.Response;
 using MarketService.Response.Interface;
+using Microsoft.EntityFrameworkCore;
 using Nekoyume.Battle;
 using Nekoyume.Helper;
 using Nekoyume.Model;
@@ -34,6 +35,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
     public int OptionCountFromCombination { get; set; }
+    [Precision(18, 2)]
+    public decimal UnitPrice { get; set; }
 
     public ItemProductResponseModel ToResponse()
     {
@@ -61,6 +64,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
             Crystal = Crystal,
             CrystalPerPrice = CrystalPerPrice,
             OptionCountFromCombination = OptionCountFromCombination,
+            UnitPrice = UnitPrice,
         };
     }
 
@@ -72,6 +76,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
 #pragma warning disable CS0618
         CombatPoint = CPHelper.GetCP(tradableItem, costumeStatSheet);
 #pragma warning restore CS0618
+        UnitPrice = Price / Quantity;
         switch (tradableItem)
         {
             case ItemUsable itemUsable:

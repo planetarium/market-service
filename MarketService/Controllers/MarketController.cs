@@ -3,7 +3,6 @@ using MarketService.Models;
 using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Stat;
@@ -27,14 +26,14 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/items/{type}")]
-    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat)
+    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat, [FromQuery] int[] itemIds)
     {
         var itemSubType = (ItemSubType) type;
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var sort = string.IsNullOrEmpty(order) ? "cp_desc" : order;
         var statType = string.IsNullOrEmpty(stat) ? StatType.NONE : Enum.Parse<StatType>(stat, true);
-        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType);
+        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType, itemIds);
         var totalCount = queryResult.Count;
         return new MarketProductResponse(
             totalCount,
@@ -46,9 +45,9 @@ public class MarketController : ControllerBase
     }
 
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
-        string sort, StatType statType)
+        string sort, StatType statType, int[] itemIds)
     {
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}";
+        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{itemIds}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
             var query = _dbContext.ItemProducts
@@ -59,6 +58,11 @@ public class MarketController : ControllerBase
             if (statType != StatType.NONE)
             {
                 query = query.Where(p => p.Stats.Any(s => s.Type == statType));
+            }
+
+            if (itemIds.Any())
+            {
+                query = query.Where(p => itemIds.Contains(p.ItemId));
             }
 
             query = query.AsSingleQuery();
@@ -74,6 +78,12 @@ public class MarketController : ControllerBase
                 "crystal" => query.OrderBy(p => p.Crystal),
                 "crystal_per_price_desc" => query.OrderByDescending(p => p.CrystalPerPrice),
                 "crystal_per_price" => query.OrderBy(p => p.CrystalPerPrice),
+                "level_desc" => query.OrderByDescending(p => p.Level),
+                "level" => query.OrderBy(p => p.Level),
+                "opt_count_desc" => query.OrderByDescending(p => p.OptionCountFromCombination),
+                "opt_count" => query.OrderBy(p => p.OptionCountFromCombination),
+                "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice),
+                "unit_price" => query.OrderBy(p => p.UnitPrice),
                 _ => query
             };
             var result = await query.ToListAsync();

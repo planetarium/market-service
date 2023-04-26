@@ -19,4 +19,5 @@ public interface IItemProductSchema : IProductSchema
     public ICollection<SkillResponseModel> SkillModels { get; }
     public ICollection<StatResponseModel> StatModels { get; }
     public int OptionCountFromCombination { get; set; }
+    public decimal UnitPrice { get; set; }
 }

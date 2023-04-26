@@ -43,7 +43,7 @@ public class MarketControllerTest
     public async void GetItemProducts()
     {
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
-        ProductModel product = new ItemProductModel
+        ItemProductModel product = new ItemProductModel
         {
             SellerAgentAddress = new PrivateKey().ToAddress(),
             Quantity = 2,
@@ -52,9 +52,10 @@ public class MarketControllerTest
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor,
-            OptionCountFromCombination = 1
+            OptionCountFromCombination = 1,
+            UnitPrice = 3m / 2,
         };
-
+        Assert.Equal(1.5m, product.UnitPrice);
         await _context.Database.EnsureDeletedAsync();
         await _context.Database.EnsureCreatedAsync();
         _context.Products.Add(product);
@@ -65,13 +66,14 @@ public class MarketControllerTest
             SizeLimit = null,
         });
         var controller = new MarketController(_logger, _context, cache);
-        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, null);
+        var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, null, Array.Empty<int>());
         var result = Assert.Single(response.ItemProducts);
         Assert.IsType<ItemProductResponseModel>(result);
         Assert.Equal(product.ProductId, result.ProductId);
         Assert.Equal(2, result.Quantity);
         Assert.Equal(3, result.Price);
         Assert.Equal(1, result.OptionCountFromCombination);
+        Assert.Equal(1.5m, result.UnitPrice);
        var json = JsonSerializer.Serialize(result);
         var des = JsonSerializer.Deserialize<ItemProductResponseModel>(json);
         Assert.NotNull(des);
@@ -226,14 +228,14 @@ public class MarketControllerTest
         var controller = new MarketController(_logger, _context, cache);
         foreach (var stat in new [] {"atk", "ATK", "HP", "hp", "Hp", "Atk", null })
         {
-            var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, stat);
+            var response = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, stat, Array.Empty<int>());
             var result = Assert.Single(response.ItemProducts);
             Assert.IsType<ItemProductResponseModel>(result);
             Assert.Equal(product.ProductId, result.ProductId);
             Assert.Equal(2, result.Quantity);
             Assert.Equal(3, result.Price);
         }
-        var response2 = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, "DEF");
+        var response2 = await controller.GetItemProducts((int) ItemSubType.Armor, null, null, null, "DEF", Array.Empty<int>());
         Assert.Empty(response2.ItemProducts);
         await _context.Database.EnsureDeletedAsync();
     }
