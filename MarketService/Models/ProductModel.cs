@@ -22,4 +22,6 @@ public class ProductModel : IProductSchema
 
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Precision(18, 2)]
+    public decimal UnitPrice { get; set; }
 }
