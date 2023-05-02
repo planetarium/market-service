@@ -130,15 +130,14 @@ public class MarketController : ControllerBase
             var query = _dbContext.FungibleAssetValueProducts
                 .AsNoTracking()
                 .Where(p => p.Ticker.StartsWith(ticker) && p.Exist);
-            switch (sort)
+            query = sort switch
             {
-                case "price_desc":
-                    query = query.OrderByDescending(p => p.Price);
-                    break;
-                case "price":
-                    query = query.OrderBy(p => p.Price);
-                    break;
-            }
+                "price_desc" => query.OrderByDescending(p => p.Price),
+                "price" => query.OrderBy(p => p.Price),
+                "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice),
+                "unit_price" => query.OrderBy(p => p.UnitPrice),
+                _ => query
+            };
             queryResult = await query
                 .AsSingleQuery()
                 .ToListAsync();
