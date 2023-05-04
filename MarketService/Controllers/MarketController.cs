@@ -154,6 +154,34 @@ public class MarketController : ControllerBase
                 .Take(queryLimit));
     }
 
+    [HttpGet("products/fav")]
+    public async Task<MarketProductResponse> GetFavProducts([FromQuery] string[] tickers, int? limit, int? offset, string? order)
+    {
+        var queryOffset = offset ?? 0;
+        var queryLimit = limit ?? 100;
+        var sort = ReplaceSort(order);
+        var cacheKey = $"{tickers}_{queryLimit}_{queryOffset}_{sort}";
+        tickers = tickers.Select(t => $"%{t.ToUpper()}%").ToArray();
+        if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
+        {
+            var param = new NpgsqlParameter("@tickers", tickers);
+            var query = await _dbContext
+                .FungibleAssetValueProducts
+                .FromSqlRaw($"SELECT * FROM products WHERE exist = {true} AND ticker LIKE ANY(@tickers) ORDER BY {sort.Replace("_", " ")}", param)
+                .ToListAsync();
+
+            queryResult = query;
+            _memoryCache.Set(cacheKey, queryResult, _cacheTime);
+        }
+        return new MarketProductResponse(
+            queryResult!.Count,
+            0,
+            0,
+            queryResult
+                .Skip(queryOffset)
+                .Take(queryLimit));
+    }
+
     [HttpGet("products")]
     public async Task<MarketProductResponse> GetProductsById([FromQuery] Guid[] productIds)
     {
@@ -189,5 +217,17 @@ public class MarketController : ControllerBase
         }
 
         return new MarketProductResponse(result.Count, 0, 0, result);
+    }
+
+    public static string ReplaceSort(string order)
+    {
+        var sort = string.IsNullOrEmpty(order) ? "price_desc" : order;
+        if (sort.Contains("unit_price"))
+        {
+            sort = sort.Replace("unit_price", "unitprice");
+        }
+
+        sort = sort.Replace("_", " ");
+        return sort;
     }
 }
