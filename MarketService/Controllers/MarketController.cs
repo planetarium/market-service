@@ -47,7 +47,8 @@ public class MarketController : ControllerBase
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
         string sort, StatType statType, int[] itemIds)
     {
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{itemIds}";
+        var ids = string.Join("_", itemIds.OrderBy(i => i));
+        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
             var query = _dbContext.ItemProducts
