@@ -239,4 +239,15 @@ public class MarketControllerTest
         Assert.Empty(response2.ItemProducts);
         await _context.Database.EnsureDeletedAsync();
     }
+
+    [Theory]
+    [InlineData("", "price desc")]
+    [InlineData(null, "price desc")]
+    [InlineData("price_desc", "price desc")]
+    [InlineData("unit_price", "unitprice")]
+    [InlineData("unit_price_desc", "unitprice desc")]
+    public void ReplaceSort(string order, string expected)
+    {
+        Assert.Equal(expected, MarketController.ReplaceSort(order));
+    }
 }
