@@ -433,18 +433,21 @@ public class RpcClient
             .ForAll(favProduct =>
             {
                 var asset = favProduct.Asset;
+                decimal price = decimal.Parse(favProduct.Price.GetQuantityString());
+                decimal quantity = decimal.Parse(asset.GetQuantityString());
                 var favProductModel = new FungibleAssetValueProductModel
                 {
                     SellerAvatarAddress = favProduct.SellerAvatarAddress,
                     DecimalPlaces = asset.Currency.DecimalPlaces,
                     Exist = true,
                     Legacy = false,
-                    Price = decimal.Parse(favProduct.Price.GetQuantityString()),
+                    Price = price,
                     ProductId = favProduct.ProductId,
-                    Quantity = decimal.Parse(asset.GetQuantityString()),
+                    Quantity = quantity,
                     RegisteredBlockIndex = favProduct.RegisteredBlockIndex,
                     SellerAgentAddress = favProduct.SellerAgentAddress,
                     Ticker = asset.Currency.Ticker,
+                    UnitPrice = price / quantity,
                 };
                 productBag.Add(favProductModel);
             });

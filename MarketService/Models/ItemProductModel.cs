@@ -35,8 +35,6 @@ public class ItemProductModel : ProductModel, IItemProductModel
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
     public int OptionCountFromCombination { get; set; }
-    [Precision(18, 2)]
-    public decimal UnitPrice { get; set; }
 
     public ItemProductResponseModel ToResponse()
     {

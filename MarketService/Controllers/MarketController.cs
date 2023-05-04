@@ -47,7 +47,8 @@ public class MarketController : ControllerBase
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
         string sort, StatType statType, int[] itemIds)
     {
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{itemIds}";
+        var ids = string.Join("_", itemIds.OrderBy(i => i));
+        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
             var query = _dbContext.ItemProducts
@@ -130,15 +131,14 @@ public class MarketController : ControllerBase
             var query = _dbContext.FungibleAssetValueProducts
                 .AsNoTracking()
                 .Where(p => p.Ticker.StartsWith(ticker) && p.Exist);
-            switch (sort)
+            query = sort switch
             {
-                case "price_desc":
-                    query = query.OrderByDescending(p => p.Price);
-                    break;
-                case "price":
-                    query = query.OrderBy(p => p.Price);
-                    break;
-            }
+                "price_desc" => query.OrderByDescending(p => p.Price),
+                "price" => query.OrderBy(p => p.Price),
+                "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice),
+                "unit_price" => query.OrderBy(p => p.UnitPrice),
+                _ => query
+            };
             queryResult = await query
                 .AsSingleQuery()
                 .ToListAsync();

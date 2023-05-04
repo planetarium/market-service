@@ -22,6 +22,7 @@ public class FungibleAssetValueProductModel : ProductModel, IFungibleAssetValueP
             Legacy = Legacy,
             DecimalPlaces = DecimalPlaces,
             Ticker = Ticker,
+            UnitPrice = UnitPrice,
         };
     }
 }

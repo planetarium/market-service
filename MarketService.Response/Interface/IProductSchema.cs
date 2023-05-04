@@ -13,4 +13,5 @@ public interface IProductSchema
     public long RegisteredBlockIndex { get; set; }
     public bool Exist { get; set; }
     public bool Legacy { get; set; }
+    public decimal UnitPrice { get; set; }
 }

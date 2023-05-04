@@ -15,6 +15,7 @@ public class FungibleAssetValueProductResponseModel : IFungibleAssetValueProduct
     public long RegisteredBlockIndex { get; set; }
     public bool Exist { get; set; }
     public bool Legacy { get; set; }
+    public decimal UnitPrice { get; set; }
     public byte DecimalPlaces { get; set; }
     public string Ticker { get; set; }
 }
