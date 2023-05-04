@@ -160,8 +160,9 @@ public class MarketController : ControllerBase
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var sort = ReplaceSort(order);
-        var cacheKey = $"{tickers}_{queryLimit}_{queryOffset}_{sort}";
         tickers = tickers.Select(t => $"%{t.ToUpper()}%").ToArray();
+        var tickersKey = string.Join("_", tickers);
+        var cacheKey = $"{tickersKey}_{queryLimit}_{queryOffset}_{sort}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<FungibleAssetValueProductModel>? queryResult))
         {
             var param = new NpgsqlParameter("@tickers", tickers);
