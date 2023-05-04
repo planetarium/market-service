@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Stat;
+using Npgsql;
 
 namespace MarketService.Controllers;
 
