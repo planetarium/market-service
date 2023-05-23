@@ -106,7 +106,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
                     {
                         SkillId = s.SkillRow.Id,
                         Power = s.Power,
+                        StatPowerRatio = s.StatPowerRatio,
                         Chance = s.Chance,
+                        ReferencedStatType = s.ReferencedStatType,
                         ElementalType = s.SkillRow.ElementalType,
                         SkillCategory = s.SkillRow.SkillCategory,
                         HitCount = s.SkillRow.HitCount,
@@ -116,7 +118,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
                     {
                         SkillId = s.SkillRow.Id,
                         Power = s.Power,
+                        StatPowerRatio = s.StatPowerRatio,
                         Chance = s.Chance,
+                        ReferencedStatType = s.ReferencedStatType,
                         ElementalType = s.SkillRow.ElementalType,
                         SkillCategory = s.SkillRow.SkillCategory,
                         HitCount = s.SkillRow.HitCount,
