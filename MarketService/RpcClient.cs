@@ -365,18 +365,20 @@ public class RpcClient
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
-            var chainIds = new List<Guid>();
             var products = new List<Product>();
-            var productStates = await GetProductStates(avatarAddressList, hashBytes);
             var marketContext = await _contextFactory.CreateDbContextAsync();
             var existIds = marketContext.Database
                 .SqlQueryRaw<Guid>(
                     $"Select productid from products where legacy = {false}")
                 .ToList();
+            var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
+            var productListResult = await GetChunkedStates(productListAddresses, hashBytes);
+            var productLists = GetProductsState(productListResult);
+            var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
+            var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
+            var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
             {
-                chainIds.Add(kv.Key);
-                if (kv.Value.Equals(Null.Value)) deletedIds.Add(kv.Key);
                 if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
 
@@ -391,6 +393,20 @@ public class RpcClient
         {
             _logger.LogError(e, "Unexpected exception occurred during SyncProduct: {Exc}", e);
         }
+    }
+
+    private async Task<Dictionary<Guid, IValue>> GetProductStates(List<Guid> productIdList, byte[] hashBytes)
+    {
+        var productIds = new Dictionary<Address, Guid>();
+        foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
+        var productResult = await GetChunkedStates(productIds.Keys.Select(a => a.ToByteArray()).ToList(), hashBytes);
+        var result = new Dictionary<Guid, IValue>();
+        foreach (var kv in productResult)
+        {
+            var productId = productIds[kv.Key];
+            result[productId] = kv.Value;
+        }
+        return result;
     }
 
     public async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
