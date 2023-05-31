@@ -49,6 +49,7 @@ public class RpcClient
     private readonly IDbContextFactory<MarketContext> _contextFactory;
     private readonly ILogger<RpcClient> _logger;
     private readonly Receiver _receiver;
+    private bool _ready;
 
     private readonly ParallelOptions _parallelOptions = new()
     {
@@ -56,6 +57,8 @@ public class RpcClient
     };
 
     protected IBlockChainService Service = null!;
+
+    public bool Ready => _ready;
 
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
@@ -100,6 +103,7 @@ public class RpcClient
                 await Service.AddClient(_address.ToByteArray());
                 _logger.LogInformation("Joined to RPC headless");
                 Init = true;
+                _ready = true;
 
                 _logger.LogDebug("Waiting for disconnecting");
                 await hub.WaitForDisconnect();
@@ -107,6 +111,7 @@ public class RpcClient
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Error occurred");
+                _ready = false;
             }
             finally
             {

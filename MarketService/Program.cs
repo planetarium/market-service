@@ -82,7 +82,12 @@ public class Startup
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
             );
-        services.AddHealthChecks().AddDbContextCheck<MarketContext>();
+        services
+            .AddHostedService<RpcNodeCheckService>()
+            .AddSingleton<RpcNodeHealthCheck>();
+        services.AddHealthChecks()
+            .AddDbContextCheck<MarketContext>()
+            .AddCheck<RpcNodeHealthCheck>(nameof(RpcNodeHealthCheck));
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
