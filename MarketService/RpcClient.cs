@@ -490,7 +490,7 @@ public class RpcClient
     {
         var tipBytes = await Service.GetTip();
         var block =
-            BlockMarshaler.UnmarshalBlock<PolymorphicAction<ActionBase>>((Dictionary) _codec.Decode(tipBytes));
+            BlockMarshaler.UnmarshalBlock((Dictionary) _codec.Decode(tipBytes));
         return block.Hash.ToByteArray();
     }
 
