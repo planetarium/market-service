@@ -14,6 +14,7 @@ using Libplanet;
 using Libplanet.Action;
 using Libplanet.Assets;
 using Libplanet.Crypto;
+using Libplanet.State;
 using MagicOnion;
 using MagicOnion.Server;
 using MarketService.Models;
