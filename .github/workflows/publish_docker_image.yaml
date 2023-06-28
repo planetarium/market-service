@@ -5,6 +5,7 @@ on:
       - 2023q1-previewnet
       - rc-*
       - hotfix/*
+      - release/*
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:
