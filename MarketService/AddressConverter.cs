@@ -1,4 +1,4 @@
-using Libplanet;
+using Libplanet.Crypto;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MarketService;
