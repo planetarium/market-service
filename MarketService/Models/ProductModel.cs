@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Libplanet;
-using MarketService.Response;
+using Libplanet.Crypto;
 using MarketService.Response.Interface;
 using Microsoft.EntityFrameworkCore;
 

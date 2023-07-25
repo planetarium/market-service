@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Libplanet;
+using Libplanet.Crypto;
 using MarketService.Response.Interface;
 using Nekoyume.Model.Elemental;
 using Nekoyume.Model.Item;

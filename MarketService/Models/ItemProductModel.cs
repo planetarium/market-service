@@ -1,11 +1,9 @@
 using System.ComponentModel.DataAnnotations.Schema;
-using Libplanet.Assets;
+using Libplanet.Types.Assets;
 using MarketService.Response;
 using MarketService.Response.Interface;
-using Microsoft.EntityFrameworkCore;
 using Nekoyume.Battle;
 using Nekoyume.Helper;
-using Nekoyume.Model;
 using Nekoyume.Model.Elemental;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Stat;

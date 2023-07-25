@@ -1,4 +1,4 @@
-using Libplanet;
+using Libplanet.Crypto;
 using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
 

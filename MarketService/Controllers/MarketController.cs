@@ -1,4 +1,5 @@
 using Libplanet;
+using Libplanet.Crypto;
 using MarketService.Models;
 using MarketService.Response;
 using Microsoft.AspNetCore.Mvc;

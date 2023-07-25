@@ -1,5 +1,5 @@
 using System;
-using Libplanet;
+using Libplanet.Crypto;
 
 namespace MarketService.Response.Interface;
 
