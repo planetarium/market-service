@@ -352,7 +352,7 @@ public class RpcClientTest
         ItemBase item = null!;
         if (itemSubType == ItemSubType.Armor)
         {
-            tradableItem = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+            tradableItem = (ITradableItem)ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         }
 
         if (itemSubType == ItemSubType.FullCostume)
@@ -441,7 +441,7 @@ public class RpcClientTest
             1
         );
         SetShopStates(itemSubType, orderDigest);
-        _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
+        _testService.SetState(Addresses.GetItemAddress(item.ItemId), item.Serialize());
 
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
@@ -514,7 +514,7 @@ public class RpcClientTest
             {
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
-                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
+                var item = (ITradableItem)ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
                 var itemProduct = new ItemProduct
                 {
                     ProductId = productId,
