@@ -326,7 +326,7 @@ public class RpcClient
                 .ForAll(order =>
                 {
                     var orderDigest = orderDigestList.First(o => o.OrderId == order.OrderId);
-                    var item = items.OfType<ITradableItem>().First(i => i.TradableId == order.TradableId);
+                    var item = items.First(i => i.TradableId == order.TradableId);
                     var itemProduct = new ItemProductModel
                     {
                         ProductId = order.OrderId,
@@ -571,7 +571,7 @@ public class RpcClient
         return orderBag.ToList();
     }
 
-    public async Task<List<ItemBase>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
+    public async Task<List<ITradableItem>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
     {
         var itemAddressList = tradableIds.Select(i => Addresses.GetItemAddress(i).ToByteArray()).ToList();
         var chunks = itemAddressList
@@ -579,13 +579,15 @@ public class RpcClient
             .GroupBy(x => x.Index / 1000)
             .Select(x => x.Select(v => v.Value).ToList())
             .ToList();
-        var itemBag = new ConcurrentBag<ItemBase>();
+        var itemBag = new ConcurrentBag<ITradableItem>();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
             var itemResult = await GetStates(chunk, hashBytes);
             foreach (var kv in itemResult)
             {
-                var item = ItemFactory.Deserialize((Dictionary) kv.Value);
+                var item = (ITradableItem)ItemFactory.Deserialize((Dictionary) kv.Value);
+                // Avoid Exception when deserialize tradableId
+                var _ = item.TradableId;
                 itemBag.Add(item);
             }
         });
