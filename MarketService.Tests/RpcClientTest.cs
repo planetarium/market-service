@@ -352,7 +352,7 @@ public class RpcClientTest
         ItemBase item = null!;
         if (itemSubType == ItemSubType.Armor)
         {
-            tradableItem = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
+            tradableItem = (ITradableItem)ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
         }
 
         if (itemSubType == ItemSubType.FullCostume)
@@ -441,7 +441,7 @@ public class RpcClientTest
             1
         );
         SetShopStates(itemSubType, orderDigest);
-        _testService.SetState(Addresses.GetItemAddress(item.TradableId), item.Serialize());
+        _testService.SetState(Addresses.GetItemAddress(item.NonFungibleId), item.Serialize());
 
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
@@ -524,7 +524,7 @@ public class RpcClientTest
                     Type = ProductType.NonFungible,
                     SellerAgentAddress = agentAddress,
                     SellerAvatarAddress = avatarAddress,
-                    TradableItem = item
+                    TradableItem = (ITradableItem)item
                 };
                 productState.ProductIds.Add(productId);
                 _testService.SetState(Product.DeriveAddress(productId), itemProduct.Serialize());
@@ -675,7 +675,7 @@ public class RpcClientTest
 
     private class TestService : ServiceBase<IBlockChainService>, IBlockChainService
     {
-        private IAccountStateDelta _states;
+        private IAccount _states;
 
         public TestService()
         {
@@ -727,15 +727,24 @@ public class RpcClientTest
             return new UnaryResult<byte[]>(new Codec().Encode(value));
         }
 
+        public UnaryResult<byte[]> GetStateBySrh(byte[] addressBytes, byte[] stateRootHashBytes) =>
+            GetState(addressBytes, stateRootHashBytes);
+
         public UnaryResult<byte[]> GetBalance(byte[] addressBytes, byte[] currencyBytes, byte[] blockHashBytes)
         {
             throw new NotImplementedException();
         }
 
+        public UnaryResult<byte[]> GetBalanceBySrh(byte[] addressBytes, byte[] currencyBytes, byte[] stateRootHashBytes) =>
+            throw new NotImplementedException();
+
         public UnaryResult<byte[]> GetTip()
         {
             throw new NotImplementedException();
         }
+
+        public UnaryResult<byte[]> GetBlockHash(long blockIndex) =>
+            throw new NotImplementedException();
 
         public UnaryResult<bool> SetAddressesToSubscribe(byte[] toByteArray, IEnumerable<byte[]> addressesBytes)
         {
@@ -768,6 +777,9 @@ public class RpcClientTest
             throw new NotImplementedException();
         }
 
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesBySrh(IEnumerable<byte[]> addressBytesList, byte[] stateRootHashBytes) =>
+            throw new NotImplementedException();
+
         public UnaryResult<Dictionary<byte[], byte[]>> GetStateBulk(IEnumerable<byte[]> addressBytesList,
             byte[] blockHashBytes)
         {
@@ -783,6 +795,9 @@ public class RpcClientTest
 
             return new UnaryResult<Dictionary<byte[], byte[]>>(result);
         }
+
+        public UnaryResult<Dictionary<byte[], byte[]>> GetStateBulkBySrh(IEnumerable<byte[]> addressBytesList, byte[] stateRootHashBytes) =>
+            GetStateBulk(addressBytesList, stateRootHashBytes);
 
         public void SetOrder(Order order)
         {
