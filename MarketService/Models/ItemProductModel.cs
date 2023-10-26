@@ -70,7 +70,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
     {
         var stats = new List<StatModel>();
 #pragma warning disable CS0618
-        CombatPoint = CPHelper.GetCP((INonFungibleItem)tradableItem, costumeStatSheet);
+        CombatPoint = tradableItem is TradableMaterial
+            ? 0
+            : CPHelper.GetCP((INonFungibleItem)tradableItem, costumeStatSheet);
 #pragma warning restore CS0618
         UnitPrice = Price / Quantity;
         switch (tradableItem)
