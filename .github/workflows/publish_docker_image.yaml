@@ -6,6 +6,7 @@ on:
       - rc-*
       - hotfix/*
       - release/*
+    tags: ["*"]
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:
