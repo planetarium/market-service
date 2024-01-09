@@ -5,6 +5,7 @@ using Bencodex.Types;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Lib9c.Model.Order;
+using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Blocks;
 using MagicOnion.Client;
@@ -61,7 +62,7 @@ public class RpcClient
         IDbContextFactory<MarketContext> contextFactory)
     {
         _logger = logger;
-        _address = new PrivateKey().ToAddress();
+        _address = new PrivateKey().Address;
         var rpcConfigOptions = options.Value;
         _channel = GrpcChannel.ForAddress(
             $"http://{rpcConfigOptions.Host}:{rpcConfigOptions.Port}",
@@ -124,7 +125,8 @@ public class RpcClient
         try
         {
             var addressList = GetShopAddress(itemSubType);
-            var result = await Service.GetStateBulk(addressList, hashBytes);
+            var result =
+                await Service.GetBulkStateByBlockHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
             var shopStates = GetShopStates(result);
             foreach (var shopState in shopStates)
             foreach (var orderDigest in shopState.OrderDigestList)
@@ -205,7 +207,10 @@ public class RpcClient
                 }
             });
 
-            var states = await GetStates(agentAddresses.Select(a => a.ToByteArray()).ToList(), hashBytes);
+            var states = await GetStates(
+                hashBytes,
+                ReservedAddresses.LegacyAccount.ToByteArray(),
+                agentAddresses.Select(a => a.ToByteArray()).ToList());
             Parallel.ForEach(states.Values, _parallelOptions, value =>
             {
                 if (value is Dictionary d)
@@ -373,7 +378,8 @@ public class RpcClient
                     $"Select productid from products where legacy = {false}")
                 .ToList();
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
-            var productListResult = await GetChunkedStates(productListAddresses, hashBytes);
+            var productListResult =
+                await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
             var productLists = GetProductsState(productListResult);
             var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
             var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
@@ -400,7 +406,10 @@ public class RpcClient
     {
         var productIds = new Dictionary<Address, Guid>();
         foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
-        var productResult = await GetChunkedStates(productIds.Keys.Select(a => a.ToByteArray()).ToList(), hashBytes);
+        var productResult = await GetChunkedStates(
+            hashBytes,
+            ReservedAddresses.LegacyAccount.ToByteArray(),
+            productIds.Keys.Select(a => a.ToByteArray()).ToList());
         var result = new Dictionary<Guid, IValue>();
         foreach (var kv in productResult)
         {
@@ -476,7 +485,10 @@ public class RpcClient
     public async Task<T> GetSheet<T>(byte[] hashBytes) where T : ISheet, new()
     {
         var address = Addresses.GetSheetAddress<T>();
-        var result = await Service.GetState(address.ToByteArray(), hashBytes);
+        var result = await Service.GetStateByBlockHash(
+            hashBytes,
+            ReservedAddresses.LegacyAccount.ToByteArray(),
+            address.ToByteArray());
         if (_codec.Decode(result) is Text t)
         {
             var sheet = new T();
@@ -499,12 +511,16 @@ public class RpcClient
         byte[] hashBytes)
     {
         var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
-        var productListResult = await GetChunkedStates(productListAddresses, hashBytes);
+        var productListResult =
+            await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
         var productLists = GetProductsState(productListResult);
         var productIdList = productLists.SelectMany(p => p.ProductIds).ToList();
         var productIds = new Dictionary<Address, Guid>();
         foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
-        var productResult = await GetChunkedStates(productIds.Keys.Select(a => a.ToByteArray()).ToList(), hashBytes);
+        var productResult = await GetChunkedStates(
+            hashBytes,
+            ReservedAddresses.LegacyAccount.ToByteArray(),
+            productIds.Keys.Select(a => a.ToByteArray()).ToList());
         var result = new Dictionary<Guid, IValue>();
         foreach (var kv in productResult)
         {
@@ -561,7 +577,7 @@ public class RpcClient
         var orderBag = new ConcurrentBag<Order>();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var orderResult = await GetStates(chunk, hashBytes);
+            var orderResult = await GetStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), chunk);
             foreach (var kv in orderResult)
             {
                 var order = OrderFactory.Deserialize((Dictionary) kv.Value);
@@ -582,7 +598,7 @@ public class RpcClient
         var itemBag = new ConcurrentBag<ITradableItem>();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var itemResult = await GetStates(chunk, hashBytes);
+            var itemResult = await GetStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), chunk);
             foreach (var kv in itemResult)
             {
                 var item = (ITradableItem)ItemFactory.Deserialize((Dictionary) kv.Value);
@@ -594,10 +610,10 @@ public class RpcClient
         return itemBag.ToList();
     }
 
-    public async Task<Dictionary<Address, IValue>> GetStates(List<byte[]> addressList, byte[] hashBytes)
+    public async Task<Dictionary<Address, IValue>> GetStates(byte[] hashBytes, byte[] accountBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
-        var queryResult = await Service.GetStateBulk(addressList, hashBytes);
+        var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, addressList);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
@@ -608,7 +624,7 @@ public class RpcClient
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
-    public async Task<Dictionary<Address, IValue>> GetChunkedStates(List<byte[]> addressList, byte[] hashBytes)
+    public async Task<Dictionary<Address, IValue>> GetChunkedStates(byte[] hashBytes, byte[] accountBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
         var chunks = addressList
@@ -618,7 +634,7 @@ public class RpcClient
             .ToList();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var queryResult = await Service.GetStateBulk(chunk, hashBytes);
+            var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, chunk);
             foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
         });
 
@@ -627,7 +643,10 @@ public class RpcClient
 
     public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
-        var marketResult = await Service.GetState(Addresses.Market.ToByteArray(), hashBytes);
+        var marketResult = await Service.GetStateByBlockHash(
+            hashBytes,
+            ReservedAddresses.LegacyAccount.ToByteArray(),
+            Addresses.Market.ToByteArray());
         var value = _codec.Decode(marketResult);
         if (value is List list) return new MarketState(list);
 
@@ -638,7 +657,10 @@ public class RpcClient
     {
         var digestListStateAddresses =
             avatarAddresses.Select(a => OrderDigestListState.DeriveAddress(a).ToByteArray()).ToList();
-        var digestListStateResult = await GetStates(digestListStateAddresses, hashBytes);
+        var digestListStateResult = await GetStates(
+            hashBytes,
+            ReservedAddresses.LegacyAccount.ToByteArray(),
+            digestListStateAddresses);
         var orderDigests = new ConcurrentBag<OrderDigest>();
         Parallel.ForEach(digestListStateResult.Values, _parallelOptions, value =>
         {
