@@ -715,7 +715,10 @@ public class RpcClientTest
             throw new NotImplementedException();
         }
 
-        public UnaryResult<byte[]> GetStateByBlockHash(byte[] blockHashBytes, byte[] accountBytes, byte[] addressBytes)
+        public UnaryResult<byte[]> GetStateByBlockHash(
+            byte[] blockHashBytes,
+            byte[] accountBytes, 
+            byte[] addressBytes)
         {
             var address = new Address(addressBytes);
             var value = _states.GetLegacyState(address);
@@ -741,16 +744,6 @@ public class RpcClientTest
             byte[] currencyBytes) =>
             throw new NotImplementedException();
 
-        public UnaryResult<byte[]> GetAgentStateByBlockHash(
-            byte[] blockHashBytes,
-            byte[] addressBytes) =>
-            throw new NotImplementedException();
-
-        public UnaryResult<byte[]> GetAgentStateByStateRootHash(
-            byte[] stateRootHashBytes,
-            byte[] addressBytes) =>
-            throw new NotImplementedException();
-
         public UnaryResult<byte[]> GetTip() => throw new NotImplementedException();
 
         public UnaryResult<byte[]> GetBlockHash(long blockIndex) => throw new NotImplementedException();
@@ -765,6 +758,16 @@ public class RpcClientTest
         public UnaryResult<bool> AddClient(byte[] addressByte) => throw new NotImplementedException();
 
         public UnaryResult<bool> RemoveClient(byte[] addressByte) => throw new NotImplementedException();
+
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByBlockHash(
+            byte[] blockHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
+            throw new NotImplementedException();
+
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByStateRootHash(
+            byte[] stateRootHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
+            throw new NotImplementedException();
 
         public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesByBlockHash(
             byte[] blockHashBytes,
