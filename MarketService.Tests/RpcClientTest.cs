@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
-using Lib9c.Formatters;
 using Lib9c.Model.Order;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
@@ -24,6 +21,7 @@ using Nekoyume;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
+using Nekoyume.Module;
 using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
@@ -381,7 +379,7 @@ public class RpcClientTest
         SetShopStates(itemSubType, orderDigest);
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
-        _testService.SetState(agentAddress, agentState.Serialize());
+        _testService.SetAgentState(agentAddress, agentState);
         var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
         orderDigestListState.Add(orderDigest);
         _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
@@ -445,7 +443,7 @@ public class RpcClientTest
 
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
-        _testService.SetState(agentAddress, agentState.Serialize());
+        _testService.SetAgentState(agentAddress, agentState);
         var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
         orderDigestListState.Add(orderDigest);
         _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
@@ -675,13 +673,11 @@ public class RpcClientTest
 
     private class TestService : ServiceBase<IBlockChainService>, IBlockChainService
     {
-        private IAccount _states;
+        private IWorld _states;
 
         public TestService()
         {
-            _states = new AccountStateDelta(ImmutableDictionary<Address, IValue>.Empty,
-                ImmutableDictionary<(Address, Currency), BigInteger>.Empty,
-                ImmutableDictionary<Currency, BigInteger>.Empty);
+            _states = new World(new MockWorldState());
         }
 
         public IBlockChainService WithOptions(CallOptions option)
@@ -722,7 +718,7 @@ public class RpcClientTest
         public UnaryResult<byte[]> GetStateByBlockHash(byte[] blockHashBytes, byte[] accountBytes, byte[] addressBytes)
         {
             var address = new Address(addressBytes);
-            var value = _states.GetState(address);
+            var value = _states.GetLegacyState(address);
             if (value is null) throw new NullReferenceException();
             return new UnaryResult<byte[]>(new Codec().Encode(value));
         }
@@ -817,7 +813,12 @@ public class RpcClientTest
 
         public void SetState(Address address, IValue value)
         {
-            _states = _states.SetState(address, value);
+            _states = _states.SetLegacyState(address, value);
+        }
+
+        public void SetAgentState(Address address, AgentState agentState)
+        {
+            _states = _states.SetAgentState(address, agentState);
         }
     }
 
