@@ -735,16 +735,24 @@ public class RpcClientTest
 
         public UnaryResult<byte[]> GetBalanceByBlockHash(
             byte[] blockHashBytes,
-            byte[] accountBytes,
             byte[] addressBytes,
             byte[] currencyBytes) =>
             throw new NotImplementedException();
 
         public UnaryResult<byte[]> GetBalanceByStateRootHash(
             byte[] stateRootHashBytes,
-            byte[] accountBytes,
             byte[] addressBytes,
             byte[] currencyBytes) =>
+            throw new NotImplementedException();
+
+        public UnaryResult<byte[]> GetAgentStateByBlockHash(
+            byte[] blockHashBytes,
+            byte[] addressBytes) =>
+            throw new NotImplementedException();
+
+        public UnaryResult<byte[]> GetAgentStateByStateRootHash(
+            byte[] stateRootHashBytes,
+            byte[] addressBytes) =>
             throw new NotImplementedException();
 
         public UnaryResult<byte[]> GetTip() => throw new NotImplementedException();
