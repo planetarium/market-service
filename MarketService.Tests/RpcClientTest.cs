@@ -25,6 +25,7 @@ using Nekoyume.Module;
 using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
+using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -761,8 +762,21 @@ public class RpcClientTest
 
         public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByBlockHash(
             byte[] blockHashBytes,
-            IEnumerable<byte[]> addressBytesList) =>
-            throw new NotImplementedException();
+            IEnumerable<byte[]> addressBytesList)
+        {
+            var result = new Dictionary<byte[], byte[]>();
+            foreach (var addressBytes in addressBytesList)
+            {
+                var address = new Address(addressBytes);
+                var value = _states.GetResolvedState(address, Addresses.Agent);
+                if (value is { } iValue)
+                {
+                    result.Add(addressBytes, new Codec().Encode(iValue));
+                }
+            }
+
+            return new UnaryResult<Dictionary<byte[], byte[]>>(result);
+        }
 
         public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByStateRootHash(
             byte[] stateRootHashBytes,
