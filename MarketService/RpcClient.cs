@@ -207,15 +207,14 @@ public class RpcClient
                 }
             });
 
-            var states = await GetStates(
+            var agentStates = await GetAgentStates(
                 hashBytes,
-                ReservedAddresses.LegacyAccount.ToByteArray(),
                 agentAddresses.Select(a => a.ToByteArray()).ToList());
-            Parallel.ForEach(states.Values, _parallelOptions, value =>
+
+            Parallel.ForEach(agentStates.Values, _parallelOptions, value =>
             {
-                if (value is Dictionary d)
+                if (value is AgentState agentState)
                 {
-                    var agentState = new AgentState(d);
                     foreach (var avatatarAddress in agentState.avatarAddresses.Values)
                     {
                         avatarAddresses.Add(avatatarAddress);
@@ -637,6 +636,24 @@ public class RpcClient
             var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, chunk);
             foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
         });
+
+        return result.ToDictionary(kv => kv.Key, kv => kv.Value);
+    }
+
+    public async Task<Dictionary<Address, AgentState>> GetAgentStates(byte[] hashBytes, List<byte[]> addressList)
+    {
+        var result = new ConcurrentDictionary<Address, AgentState>();
+        var queryResult = await Service.GetAgentStatesByBlockHash(hashBytes, addressList);
+        queryResult
+            .AsParallel()
+            .WithDegreeOfParallelism(MaxDegreeOfParallelism)
+            .ForAll(kv =>
+            {
+                if (_codec.Decode(kv.Value) is Dictionary dict)
+                {
+                    result.TryAdd(new Address(kv.Key), new AgentState(dict));
+                }
+            });
 
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
