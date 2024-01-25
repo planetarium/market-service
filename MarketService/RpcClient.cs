@@ -649,9 +649,14 @@ public class RpcClient
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
             .ForAll(kv =>
             {
-                if (_codec.Decode(kv.Value) is Dictionary dict)
+                var iValue = _codec.Decode(kv.Value);
+                if (iValue is Dictionary dict)
                 {
                     result.TryAdd(new Address(kv.Key), new AgentState(dict));
+                }
+                else if (iValue is List list)
+                {
+                    result.TryAdd(new Address(kv.Key), new AgentState(list));
                 }
             });
 
