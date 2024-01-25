@@ -25,7 +25,6 @@ using Nekoyume.Module;
 using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
-using Newtonsoft.Json.Linq;
 using Xunit;
 using Xunit.Abstractions;
 
