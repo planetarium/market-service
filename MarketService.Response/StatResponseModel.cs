@@ -5,7 +5,7 @@ namespace MarketService.Response;
 
 public class StatResponseModel : IStatSchema
 {
-    public int Value { get; set; }
+    public long Value { get; set; }
     public StatType Type { get; set; }
     public bool Additional { get; set; }
 }

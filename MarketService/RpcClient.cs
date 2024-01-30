@@ -61,7 +61,7 @@ public class RpcClient
         IDbContextFactory<MarketContext> contextFactory)
     {
         _logger = logger;
-        _address = new PrivateKey().ToAddress();
+        _address = new PrivateKey().Address;
         var rpcConfigOptions = options.Value;
         _channel = GrpcChannel.ForAddress(
             $"http://{rpcConfigOptions.Host}:{rpcConfigOptions.Port}",
@@ -297,7 +297,7 @@ public class RpcClient
     public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy,
         bool exist = false)
     {
-        // 등록취소, 판매된 경우 Exist 필드를 업데이트함. 
+        // 등록취소, 판매된 경우 Exist 필드를 업데이트함.
         if (deletedIds.Any())
         {
             await marketContext.Database.BeginTransactionAsync();

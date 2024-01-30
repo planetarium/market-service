@@ -12,7 +12,7 @@ namespace MarketService.Response
         public SkillCategory SkillCategory { get; set; }
         public int HitCount { get; set; }
         public int Cooldown { get; set; }
-        public int Power { get; set; }
+        public long Power { get; set; }
         public int StatPowerRatio { get; set; }
         public int Chance { get; set; }
         public StatType ReferencedStatType { get; set; }

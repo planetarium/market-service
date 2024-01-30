@@ -45,10 +45,10 @@ public class MarketControllerTest
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
         ItemProductModel product = new ItemProductModel
         {
-            SellerAgentAddress = new PrivateKey().ToAddress(),
+            SellerAgentAddress = new PrivateKey().Address,
             Quantity = 2,
             Price = decimal.Parse(productPrice.GetQuantityString()),
-            SellerAvatarAddress = new PrivateKey().ToAddress(),
+            SellerAvatarAddress = new PrivateKey().Address,
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor,
@@ -89,10 +89,10 @@ public class MarketControllerTest
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
         ProductModel product = new ItemProductModel
         {
-            SellerAgentAddress = new PrivateKey().ToAddress(),
+            SellerAgentAddress = new PrivateKey().Address,
             Quantity = 2,
             Price = decimal.Parse(productPrice.GetQuantityString()),
-            SellerAvatarAddress = new PrivateKey().ToAddress(),
+            SellerAvatarAddress = new PrivateKey().Address,
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor
@@ -100,10 +100,10 @@ public class MarketControllerTest
 
         ProductModel product2 = new ItemProductModel
         {
-            SellerAgentAddress = new PrivateKey().ToAddress(),
+            SellerAgentAddress = new PrivateKey().Address,
             Quantity = 2,
             Price = decimal.Parse(productPrice.GetQuantityString()),
-            SellerAvatarAddress = new PrivateKey().ToAddress(),
+            SellerAvatarAddress = new PrivateKey().Address,
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor
@@ -158,10 +158,10 @@ public class MarketControllerTest
             var ticker = runeTickers[index];
             var product = new FungibleAssetValueProductModel
             {
-                SellerAgentAddress = new PrivateKey().ToAddress(),
+                SellerAgentAddress = new PrivateKey().Address,
                 Quantity = 2,
                 Price = 1 + index,
-                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                SellerAvatarAddress = new PrivateKey().Address,
                 DecimalPlaces = 0,
                 Exist = true,
                 Ticker = ticker,
@@ -191,10 +191,10 @@ public class MarketControllerTest
         var productPrice = 3 * CrystalCalculator.CRYSTAL;
         ProductModel product = new ItemProductModel
         {
-            SellerAgentAddress = new PrivateKey().ToAddress(),
+            SellerAgentAddress = new PrivateKey().Address,
             Quantity = 2,
             Price = decimal.Parse(productPrice.GetQuantityString()),
-            SellerAvatarAddress = new PrivateKey().ToAddress(),
+            SellerAvatarAddress = new PrivateKey().Address,
             ItemId = 3,
             Exist = true,
             ItemSubType = ItemSubType.Armor,

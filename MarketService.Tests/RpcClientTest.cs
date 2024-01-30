@@ -343,8 +343,8 @@ public class RpcClientTest
 #pragma warning restore EF1001
         await context.Database.EnsureDeletedAsync(ct);
         await context.Database.EnsureCreatedAsync(ct);
-        var agentAddress = new PrivateKey().ToAddress();
-        var avatarAddress = new PrivateKey().ToAddress();
+        var agentAddress = new PrivateKey().Address;
+        var avatarAddress = new PrivateKey().Address;
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
@@ -420,8 +420,8 @@ public class RpcClientTest
 #pragma warning restore EF1001
         await context.Database.EnsureDeletedAsync(ct);
         await context.Database.EnsureCreatedAsync(ct);
-        var agentAddress = new PrivateKey().ToAddress();
-        var avatarAddress = new PrivateKey().ToAddress();
+        var agentAddress = new PrivateKey().Address;
+        var avatarAddress = new PrivateKey().Address;
         var order = OrderFactory.Create(agentAddress, avatarAddress, Guid.NewGuid(), 1 * _currency, Guid.NewGuid(), 0L,
             itemSubType, 1);
         _testService.SetOrder(order);
@@ -506,8 +506,8 @@ public class RpcClientTest
         var productsStates = new Dictionary<Address, ProductsState>();
         for (int i = 0; i < 10; i++)
         {
-            var agentAddress = new PrivateKey().ToAddress();
-            var avatarAddress = new PrivateKey().ToAddress();
+            var agentAddress = new PrivateKey().Address;
+            var avatarAddress = new PrivateKey().Address;
             var productState = new ProductsState();
             marketState.AvatarAddresses.Add(avatarAddress);
             for (int j = 0; j < 10; j++)
@@ -585,7 +585,7 @@ public class RpcClientTest
         foreach (var shopAddress in shopAddresses)
         {
             var shopState = new ShardedShopStateV2(shopAddress);
-            var agentAddress = new PrivateKey().ToAddress();
+            var agentAddress = new PrivateKey().Address;
             var orderDigest = new OrderDigest(agentAddress, 0L, 1L, Guid.NewGuid(), Guid.NewGuid(), 1 * _currency, 1, 1,
                 1, 1);
             shopState.Add(orderDigest, 0L);
@@ -614,10 +614,10 @@ public class RpcClientTest
             ProductModel itemProduct = new ItemProductModel
             {
                 ProductId = Guid.NewGuid(),
-                SellerAgentAddress = new PrivateKey().ToAddress(),
+                SellerAgentAddress = new PrivateKey().Address,
                 Quantity = 1,
                 Price = decimal.Parse(productPrice.GetQuantityString()),
-                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                SellerAvatarAddress = new PrivateKey().Address,
                 ItemId = 3,
                 Exist = true,
                 ItemSubType = ItemSubType.Armor,
@@ -626,10 +626,10 @@ public class RpcClientTest
             ProductModel favProduct = new FungibleAssetValueProductModel
             {
                 ProductId = Guid.NewGuid(),
-                SellerAgentAddress = new PrivateKey().ToAddress(),
+                SellerAgentAddress = new PrivateKey().Address,
                 Quantity = 2,
                 Price = decimal.Parse(productPrice.GetQuantityString()),
-                SellerAvatarAddress = new PrivateKey().ToAddress(),
+                SellerAvatarAddress = new PrivateKey().Address,
                 Exist = true,
                 Legacy = !legacy
             };
