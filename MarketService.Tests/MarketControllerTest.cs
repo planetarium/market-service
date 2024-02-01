@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using Libplanet;
 using Libplanet.Crypto;
 using MarketService.Controllers;
 using MarketService.Models;

@@ -6,6 +6,7 @@ on:
       - rc-*
       - hotfix/*
       - release/*
+      - upgrade/libplanet-4.0
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:

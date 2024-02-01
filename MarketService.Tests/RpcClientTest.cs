@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
-using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
 using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
-using Lib9c.Formatters;
 using Lib9c.Model.Order;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
@@ -24,6 +21,7 @@ using Nekoyume;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
+using Nekoyume.Module;
 using Nekoyume.Shared.Services;
 using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
@@ -381,7 +379,7 @@ public class RpcClientTest
         SetShopStates(itemSubType, orderDigest);
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
-        _testService.SetState(agentAddress, agentState.Serialize());
+        _testService.SetAgentState(agentAddress, agentState);
         var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
         orderDigestListState.Add(orderDigest);
         _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
@@ -445,7 +443,7 @@ public class RpcClientTest
 
         var agentState = new AgentState(agentAddress);
         agentState.avatarAddresses.Add(0, avatarAddress);
-        _testService.SetState(agentAddress, agentState.Serialize());
+        _testService.SetAgentState(agentAddress, agentState);
         var orderDigestListState = new OrderDigestListState(OrderDigestListState.DeriveAddress(avatarAddress));
         orderDigestListState.Add(orderDigest);
         _testService.SetState(orderDigestListState.Address, orderDigestListState.Serialize());
@@ -675,13 +673,11 @@ public class RpcClientTest
 
     private class TestService : ServiceBase<IBlockChainService>, IBlockChainService
     {
-        private IAccount _states;
+        private IWorld _states;
 
         public TestService()
         {
-            _states = new AccountStateDelta(ImmutableDictionary<Address, IValue>.Empty,
-                ImmutableDictionary<(Address, Currency), BigInteger>.Empty,
-                ImmutableDictionary<Currency, BigInteger>.Empty);
+            _states = new World(new MockWorldState());
         }
 
         public IBlockChainService WithOptions(CallOptions option)
@@ -719,75 +715,94 @@ public class RpcClientTest
             throw new NotImplementedException();
         }
 
-        public UnaryResult<byte[]> GetState(byte[] addressBytes, byte[] blockHashBytes)
+        public UnaryResult<byte[]> GetStateByBlockHash(
+            byte[] blockHashBytes,
+            byte[] accountBytes, 
+            byte[] addressBytes)
         {
             var address = new Address(addressBytes);
-            var value = _states.GetState(address);
+            var value = _states.GetLegacyState(address);
             if (value is null) throw new NullReferenceException();
             return new UnaryResult<byte[]>(new Codec().Encode(value));
         }
 
-        public UnaryResult<byte[]> GetStateBySrh(byte[] addressBytes, byte[] stateRootHashBytes) =>
-            GetState(addressBytes, stateRootHashBytes);
+        public UnaryResult<byte[]> GetStateByStateRootHash(
+            byte[] stateRootHashBytes,
+            byte[] accountBytes,
+            byte[] addressBytes) =>
+            GetStateByBlockHash(stateRootHashBytes, accountBytes, addressBytes);
 
-        public UnaryResult<byte[]> GetBalance(byte[] addressBytes, byte[] currencyBytes, byte[] blockHashBytes)
-        {
+        public UnaryResult<byte[]> GetBalanceByBlockHash(
+            byte[] blockHashBytes,
+            byte[] addressBytes,
+            byte[] currencyBytes) =>
             throw new NotImplementedException();
+
+        public UnaryResult<byte[]> GetBalanceByStateRootHash(
+            byte[] stateRootHashBytes,
+            byte[] addressBytes,
+            byte[] currencyBytes) =>
+            throw new NotImplementedException();
+
+        public UnaryResult<byte[]> GetTip() => throw new NotImplementedException();
+
+        public UnaryResult<byte[]> GetBlockHash(long blockIndex) => throw new NotImplementedException();
+
+        public UnaryResult<bool> SetAddressesToSubscribe(byte[] toByteArray, IEnumerable<byte[]> addressesBytes) =>
+            throw new NotImplementedException();
+
+        public UnaryResult<bool> IsTransactionStaged(byte[] txidBytes) => throw new NotImplementedException();
+
+        public UnaryResult<bool> ReportException(string code, string message) => throw new NotImplementedException();
+
+        public UnaryResult<bool> AddClient(byte[] addressByte) => throw new NotImplementedException();
+
+        public UnaryResult<bool> RemoveClient(byte[] addressByte) => throw new NotImplementedException();
+
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByBlockHash(
+            byte[] blockHashBytes,
+            IEnumerable<byte[]> addressBytesList)
+        {
+            var result = new Dictionary<byte[], byte[]>();
+            foreach (var addressBytes in addressBytesList)
+            {
+                var address = new Address(addressBytes);
+                var value = _states.GetResolvedState(address, Addresses.Agent);
+                if (value is { } iValue)
+                {
+                    result.Add(addressBytes, new Codec().Encode(iValue));
+                }
+            }
+
+            return new UnaryResult<Dictionary<byte[], byte[]>>(result);
         }
 
-        public UnaryResult<byte[]> GetBalanceBySrh(byte[] addressBytes, byte[] currencyBytes, byte[] stateRootHashBytes) =>
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByStateRootHash(
+            byte[] stateRootHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
             throw new NotImplementedException();
 
-        public UnaryResult<byte[]> GetTip()
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<byte[]> GetBlockHash(long blockIndex) =>
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesByBlockHash(
+            byte[] blockHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
             throw new NotImplementedException();
 
-        public UnaryResult<bool> SetAddressesToSubscribe(byte[] toByteArray, IEnumerable<byte[]> addressesBytes)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<bool> IsTransactionStaged(byte[] txidBytes)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<bool> ReportException(string code, string message)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<bool> AddClient(byte[] addressByte)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<bool> RemoveClient(byte[] addressByte)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStates(IEnumerable<byte[]> addressBytesList,
-            byte[] blockHashBytes)
-        {
-            throw new NotImplementedException();
-        }
-
-        public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesBySrh(IEnumerable<byte[]> addressBytesList, byte[] stateRootHashBytes) =>
+        public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesByStateRootHash(
+            byte[] stateRootHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
             throw new NotImplementedException();
 
-        public UnaryResult<Dictionary<byte[], byte[]>> GetStateBulk(IEnumerable<byte[]> addressBytesList,
-            byte[] blockHashBytes)
+        public UnaryResult<Dictionary<byte[], byte[]>> GetBulkStateByBlockHash(
+            byte[] blockHashBytes,
+            byte[] accountBytes,
+            IEnumerable<byte[]> addressBytesList)
         {
             var result = new Dictionary<byte[], byte[]>();
             foreach (var addressBytes in addressBytesList)
                 try
                 {
-                    result[addressBytes] = GetState(addressBytes, blockHashBytes).ResponseAsync.Result;
+                    result[addressBytes] =
+                        GetStateByBlockHash(blockHashBytes, accountBytes, addressBytes).ResponseAsync.Result;
                 }
                 catch (NullReferenceException)
                 {
@@ -796,8 +811,16 @@ public class RpcClientTest
             return new UnaryResult<Dictionary<byte[], byte[]>>(result);
         }
 
-        public UnaryResult<Dictionary<byte[], byte[]>> GetStateBulkBySrh(IEnumerable<byte[]> addressBytesList, byte[] stateRootHashBytes) =>
-            GetStateBulk(addressBytesList, stateRootHashBytes);
+        public UnaryResult<Dictionary<byte[], byte[]>> GetBulkStateByStateRootHash(
+            byte[] stateRootHashBytes,
+            byte[] accountBytes,
+            IEnumerable<byte[]> addressBytesList) =>
+            GetBulkStateByBlockHash(stateRootHashBytes, accountBytes, addressBytesList);
+
+        public UnaryResult<Dictionary<byte[], byte[]>> GetSheets(
+            byte[] blockHashBytes,
+            IEnumerable<byte[]> addressBytesList) =>
+            throw new NotImplementedException();
 
         public void SetOrder(Order order)
         {
@@ -806,7 +829,12 @@ public class RpcClientTest
 
         public void SetState(Address address, IValue value)
         {
-            _states = _states.SetState(address, value);
+            _states = _states.SetLegacyState(address, value);
+        }
+
+        public void SetAgentState(Address address, AgentState agentState)
+        {
+            _states = _states.SetAgentState(address, agentState);
         }
     }
 
