@@ -406,7 +406,7 @@ public class RpcClient
             foreach (var productId in productLists.SelectMany(p => p.ProductIds))
             {
                 chainIds.Add(productId);
-                if (!existIds.Contains(productId))
+                if (!dbIds.Contains(productId))
                 {
                     targetIds.Add(productId);
                 }
