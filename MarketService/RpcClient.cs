@@ -392,6 +392,7 @@ public class RpcClient
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var productListResult =
                 await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
             sw.Stop();
@@ -401,16 +402,8 @@ public class RpcClient
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
             sw.Restart();
-            var chainIds = new List<Guid>();
-            var targetIds = new List<Guid>();
-            foreach (var productId in productLists.SelectMany(p => p.ProductIds))
-            {
-                chainIds.Add(productId);
-                if (!dbIds.Contains(productId))
-                {
-                    targetIds.Add(productId);
-                }
-            }
+            var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
+            var targetIds = chainIds.Except(dbIds).ToList();
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
             sw.Restart();
