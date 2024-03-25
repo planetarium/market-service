@@ -371,7 +371,6 @@ public class RpcClient
             sw.Start();
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
-            var deletedIds = new List<Guid>();
             var products = new List<Product>();
             var marketContext = await _contextFactory.CreateDbContextAsync();
             var existIds = marketContext.Database
@@ -390,25 +389,35 @@ public class RpcClient
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
             sw.Restart();
-            var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
-            var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
+            var chainIds = new List<Guid>();
+            var targetIds = new List<Guid>();
+            foreach (var productId in productLists.SelectMany(p => p.ProductIds))
+            {
+                chainIds.Add(productId);
+                if (!existIds.Contains(productId))
+                {
+                    targetIds.Add(productId);
+                }
+            }
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
             sw.Restart();
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
             {
-                if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
+                if (kv.Value is List deserialized && !existIds.Contains(kv.Key))
+                {
+                    products.Add(ProductFactory.DeserializeProduct(deserialized));
+                }
             }
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Get ProductStates({ProductCount}): {Elapsed}", products.Count, sw.Elapsed);
             sw.Restart();
 
             // filter ids chain not exist product ids.
-            deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
-            deletedIds = deletedIds.Distinct().ToList();
+            var deletedIds = existIds.Except(chainIds).Distinct().ToList();
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]distinct DeletedIds: {Elapsed}", sw.Elapsed);
+            _logger.LogInformation("[ProductWorker]distinct DeletedIds({DeletedCount}): {Elapsed}", deletedIds.Count, sw.Elapsed);
             sw.Restart();
             await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet);
