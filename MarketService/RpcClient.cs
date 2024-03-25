@@ -373,10 +373,22 @@ public class RpcClient
             var avatarAddressList = marketState.AvatarAddresses;
             var products = new List<Product>();
             var marketContext = await _contextFactory.CreateDbContextAsync();
-            var existIds = marketContext.Database
-                .SqlQueryRaw<Guid>(
-                    $"Select productid from products where legacy = {false} and exist = {true}")
-                .ToList();
+            var productInfos = await marketContext.Products
+                .AsNoTracking()
+                .Where(p => !p.Legacy)
+                .Select(p => new {p.ProductId, p.Exist})
+                .ToListAsync();
+            var existIds = new List<Guid>();
+            var dbIds = new List<Guid>();
+            foreach (var productInfo in productInfos)
+            {
+                var productId = productInfo.ProductId;
+                dbIds.Add(productInfo.ProductId);
+                if (productInfo.Exist)
+                {
+                    existIds.Add(productId);
+                }
+            }
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
             sw.Stop();
             _logger.LogInformation("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
@@ -405,7 +417,8 @@ public class RpcClient
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
             {
-                if (kv.Value is List deserialized && !existIds.Contains(kv.Key))
+                // check db all product ids avoid already synced products
+                if (kv.Value is List deserialized && !dbIds.Contains(kv.Key))
                 {
                     products.Add(ProductFactory.DeserializeProduct(deserialized));
                 }
