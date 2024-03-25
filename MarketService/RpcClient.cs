@@ -375,7 +375,7 @@ public class RpcClient
             var marketContext = await _contextFactory.CreateDbContextAsync();
             var existIds = marketContext.Database
                 .SqlQueryRaw<Guid>(
-                    $"Select productid from products where legacy = {false}")
+                    $"Select productid from products where legacy = {false} and exist = {true}")
                 .ToList();
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
             sw.Stop();
