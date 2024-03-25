@@ -53,7 +53,7 @@ public class RpcClient
         MaxDegreeOfParallelism = MaxDegreeOfParallelism
     };
 
-    protected IBlockChainService Service = null!;
+    public IBlockChainService Service = null!;
 
     public bool Ready => _ready;
 
@@ -367,6 +367,8 @@ public class RpcClient
 
         try
         {
+            var sw = new Stopwatch();
+            sw.Start();
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
             var deletedIds = new List<Guid>();
@@ -377,23 +379,45 @@ public class RpcClient
                     $"Select productid from products where legacy = {false}")
                 .ToList();
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
             var productListResult =
                 await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Get ChunkedStates: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var productLists = GetProductsState(productListResult);
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
             var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Get Ids: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
             {
                 if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Get ProductStates: {Elapsed}", sw.Elapsed);
+            sw.Restart();
 
             // filter ids chain not exist product ids.
             deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
             deletedIds = deletedIds.Distinct().ToList();
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]distinct DeletedIds: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet);
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             await UpdateProducts(deletedIds, marketContext, false);
+            sw.Stop();
+            _logger.LogInformation("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
         }
         catch (Exception e)
         {
