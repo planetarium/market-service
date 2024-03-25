@@ -393,7 +393,7 @@ public class RpcClient
             var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
             var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get Ids: {Elapsed}", sw.Elapsed);
+            _logger.LogInformation("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
             sw.Restart();
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
@@ -401,7 +401,7 @@ public class RpcClient
                 if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
             }
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get ProductStates: {Elapsed}", sw.Elapsed);
+            _logger.LogInformation("[ProductWorker]Get ProductStates({ProductCount}): {Elapsed}", products.Count, sw.Elapsed);
             sw.Restart();
 
             // filter ids chain not exist product ids.
