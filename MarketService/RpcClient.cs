@@ -391,21 +391,21 @@ public class RpcClient
             }
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
             sw.Restart();
             var productListResult =
                 await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get ChunkedStates: {Elapsed}", sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Get ChunkedStates: {Elapsed}", sw.Elapsed);
             sw.Restart();
             var productLists = GetProductsState(productListResult);
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
             sw.Restart();
             var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
             var targetIds = chainIds.Except(dbIds).ToList();
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
             sw.Restart();
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
@@ -417,22 +417,22 @@ public class RpcClient
                 }
             }
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Get ProductStates({ProductCount}): {Elapsed}", products.Count, sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Get ProductStates({ProductCount}): {Elapsed}", products.Count, sw.Elapsed);
             sw.Restart();
 
             // filter ids chain not exist product ids.
             var deletedIds = existIds.Except(chainIds).Distinct().ToList();
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]distinct DeletedIds({DeletedCount}): {Elapsed}", deletedIds.Count, sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]distinct DeletedIds({DeletedCount}): {Elapsed}", deletedIds.Count, sw.Elapsed);
             sw.Restart();
             await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet);
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
             sw.Restart();
             await UpdateProducts(deletedIds, marketContext, false);
             sw.Stop();
-            _logger.LogInformation("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
+            _logger.LogDebug("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
         }
         catch (Exception e)
         {
