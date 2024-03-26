@@ -53,7 +53,7 @@ public class RpcClient
         MaxDegreeOfParallelism = MaxDegreeOfParallelism
     };
 
-    protected IBlockChainService Service = null!;
+    public IBlockChainService Service = null!;
 
     public bool Ready => _ready;
 
@@ -367,33 +367,72 @@ public class RpcClient
 
         try
         {
+            var sw = new Stopwatch();
+            sw.Start();
             var marketState = await GetMarket(hashBytes);
             var avatarAddressList = marketState.AvatarAddresses;
-            var deletedIds = new List<Guid>();
             var products = new List<Product>();
             var marketContext = await _contextFactory.CreateDbContextAsync();
-            var existIds = marketContext.Database
-                .SqlQueryRaw<Guid>(
-                    $"Select productid from products where legacy = {false}")
-                .ToList();
+            var productInfos = await marketContext.Products
+                .AsNoTracking()
+                .Where(p => !p.Legacy)
+                .Select(p => new {p.ProductId, p.Exist})
+                .ToListAsync();
+            var existIds = new List<Guid>();
+            var dbIds = new List<Guid>();
+            foreach (var productInfo in productInfos)
+            {
+                var productId = productInfo.ProductId;
+                dbIds.Add(productInfo.ProductId);
+                if (productInfo.Exist)
+                {
+                    existIds.Add(productId);
+                }
+            }
             var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Prepare existIds: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var productListResult =
                 await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Get ChunkedStates: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var productLists = GetProductsState(productListResult);
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             var chainIds = productLists.SelectMany(p => p.ProductIds).ToList();
-            var targetIds = chainIds.Where(p => !existIds.Contains(p)).ToList();
+            var targetIds = chainIds.Except(dbIds).ToList();
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Get Ids(Chain:{ChainCount}/Target:{TargetCount}): {Elapsed}", chainIds.Count, targetIds.Count, sw.Elapsed);
+            sw.Restart();
             var productStates = await GetProductStates(targetIds, hashBytes);
             foreach (var kv in productStates)
             {
-                if (kv.Value is List deserialized && !existIds.Contains(kv.Key)) products.Add(ProductFactory.DeserializeProduct(deserialized));
+                // check db all product ids avoid already synced products
+                if (kv.Value is List deserialized && !dbIds.Contains(kv.Key))
+                {
+                    products.Add(ProductFactory.DeserializeProduct(deserialized));
+                }
             }
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Get ProductStates({ProductCount}): {Elapsed}", products.Count, sw.Elapsed);
+            sw.Restart();
 
             // filter ids chain not exist product ids.
-            deletedIds.AddRange(existIds.Where(i => !chainIds.Contains(i)));
-            deletedIds = deletedIds.Distinct().ToList();
+            var deletedIds = existIds.Except(chainIds).Distinct().ToList();
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]distinct DeletedIds({DeletedCount}): {Elapsed}", deletedIds.Count, sw.Elapsed);
+            sw.Restart();
             await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet,
                 crystalMonsterCollectionMultiplierSheet);
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
+            sw.Restart();
             await UpdateProducts(deletedIds, marketContext, false);
+            sw.Stop();
+            _logger.LogDebug("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
         }
         catch (Exception e)
         {

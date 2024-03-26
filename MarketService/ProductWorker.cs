@@ -29,7 +29,7 @@ public class ProductWorker : BackgroundService
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
             var stopWatch = new Stopwatch();
-            _logger.LogInformation("Start sync product");
+            _logger.LogInformation("[ProductWorker]Start sync product");
             stopWatch.Start();
 
             while (!_rpcClient.Init) await Task.Delay(100, stoppingToken);
@@ -50,7 +50,7 @@ public class ProductWorker : BackgroundService
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            _logger.LogInformation("Complete sync product. {TotalElapsed}", ts);
+            _logger.LogInformation("[ProductWorker]Complete sync product. {TotalElapsed}", ts);
             await Task.Delay(1000, stoppingToken);
         }
     }
