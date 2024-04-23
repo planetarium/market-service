@@ -135,9 +135,29 @@ public class ItemProductModel : ProductModel, IItemProductModel
                             crystalEquipmentGrindingSheet,
                             crystalMonsterCollectionMultiplierSheet,
                             0);
-                        Crystal = (int) crystal.MajorUnit;
-                        CrystalPerPrice = (int) crystal
-                            .DivRem(price.MajorUnit).Quotient.MajorUnit;
+                        int majorUnit;
+                        try
+                        {
+                            majorUnit = (int) crystal.MajorUnit;
+                        }
+                        catch (OverflowException)
+                        {
+                            majorUnit = int.MaxValue;
+                        }
+
+                        int perPrice;
+                        try
+                        {
+                            perPrice = (int) crystal
+                                .DivRem(price.MajorUnit).Quotient.MajorUnit;
+                        }
+                        catch (OverflowException)
+                        {
+                            perPrice = int.MaxValue;
+                        }
+
+                        Crystal = majorUnit;
+                        CrystalPerPrice = perPrice;
                     }
                     catch (KeyNotFoundException)
                     {
