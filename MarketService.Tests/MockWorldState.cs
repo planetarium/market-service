@@ -31,6 +31,7 @@ public class MockWorldState : IWorldState
     public ITrie Trie { get; }
 
     public bool Legacy { get; private set; }
+    public int Version { get; }
 
     public IAccountState GetAccountState(Address address) => GetMockAccountState(address);
 
