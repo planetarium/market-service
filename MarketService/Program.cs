@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using HotChocolate.Types.Pagination;
+using MarketService.GraphTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -88,6 +90,15 @@ public class Startup
         services.AddHealthChecks()
             .AddDbContextCheck<MarketContext>()
             .AddCheck<RpcNodeHealthCheck>(nameof(RpcNodeHealthCheck));
+        services
+            .AddGraphQLServer()
+            .RegisterDbContext<MarketContext>()
+            .AddQueryType<QueryType>()
+            .AddErrorFilter<GraphqlErrorFilter>()
+            .AddProjections()
+            .AddFiltering()
+            .AddSorting()
+            .SetPagingOptions(new PagingOptions());
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -101,8 +112,18 @@ public class Startup
         app.UseRouting();
         app.UseEndpoints(endpoints =>
         {
+            endpoints.MapGraphQL();
             endpoints.MapControllers();
             endpoints.MapHealthChecks("/ping");
         });
+    }
+
+    public class GraphqlErrorFilter : IErrorFilter
+    {
+        public IError OnError(IError error)
+        {
+            var msg = error.Exception?.Message ?? error.Message;
+            return error.WithMessage(msg);
+        }
     }
 }
