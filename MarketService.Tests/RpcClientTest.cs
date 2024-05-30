@@ -678,7 +678,7 @@ public class RpcClientTest
 
         public TestService()
         {
-            _states = new World(MockWorldState.CreateLegacy());
+            _states = new World(MockWorldState.CreateModern());
         }
 
         public IBlockChainService WithOptions(CallOptions option)
