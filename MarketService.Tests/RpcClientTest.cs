@@ -10,6 +10,7 @@ using Lib9c.Model.Order;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Assets;
+using Libplanet.Mocks;
 using MagicOnion;
 using MagicOnion.Server;
 using MarketService.Models;
@@ -677,7 +678,7 @@ public class RpcClientTest
 
         public TestService()
         {
-            _states = new World(new MockWorldState());
+            _states = new World(MockWorldState.CreateLegacy());
         }
 
         public IBlockChainService WithOptions(CallOptions option)
@@ -717,7 +718,7 @@ public class RpcClientTest
 
         public UnaryResult<byte[]> GetStateByBlockHash(
             byte[] blockHashBytes,
-            byte[] accountBytes, 
+            byte[] accountBytes,
             byte[] addressBytes)
         {
             var address = new Address(addressBytes);
