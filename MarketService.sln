@@ -6,9 +6,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NineChronicles.RPC.Shared",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c", "lib9c\Lib9c\Lib9c.csproj", "{053A40DE-6FF2-42F3-B9F1-526207C44314}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet", "lib9c\.Libplanet\Libplanet\Libplanet.csproj", "{A92AA0D6-6663-4177-9CD8-221128CA1BF9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet", "lib9c\.Libplanet\src\Libplanet\Libplanet.csproj", "{A92AA0D6-6663-4177-9CD8-221128CA1BF9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Analyzers", "lib9c\.Libplanet\Libplanet.Analyzers\Libplanet.Analyzers.csproj", "{85B0BCE1-519B-4A1A-9257-58B204549909}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Analyzers", "lib9c\.Libplanet\tools\Libplanet.Analyzers\Libplanet.Analyzers.csproj", "{85B0BCE1-519B-4A1A-9257-58B204549909}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketService.Tests", "MarketService.Tests\MarketService.Tests.csproj", "{18C983E7-0A4F-4272-9744-25CFAAF30BF1}"
 EndProject
@@ -20,15 +20,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c.MessagePack", "lib9c\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lib9c.Renderers", "lib9c\Lib9c.Renderers\Lib9c.Renderers.csproj", "{CEF877B0-6AC9-40A6-8DE6-25965F76D95B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Action", "lib9c\.Libplanet\Libplanet.Action\Libplanet.Action.csproj", "{2948F478-9A74-493C-9123-4C6FC1773039}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Action", "lib9c\.Libplanet\src\Libplanet.Action\Libplanet.Action.csproj", "{2948F478-9A74-493C-9123-4C6FC1773039}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Store", "lib9c\.Libplanet\Libplanet.Store\Libplanet.Store.csproj", "{884A3F0E-8454-40EA-9CF5-63C408D9E479}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Store", "lib9c\.Libplanet\src\Libplanet.Store\Libplanet.Store.csproj", "{884A3F0E-8454-40EA-9CF5-63C408D9E479}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Common", "lib9c\.Libplanet\Libplanet.Common\Libplanet.Common.csproj", "{6A84FD35-2F39-4D66-996D-29A7859DF9D3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Common", "lib9c\.Libplanet\src\Libplanet.Common\Libplanet.Common.csproj", "{6A84FD35-2F39-4D66-996D-29A7859DF9D3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Types", "lib9c\.Libplanet\Libplanet.Types\Libplanet.Types.csproj", "{890AEE56-A3F5-4479-9EE7-3C4060304C21}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Types", "lib9c\.Libplanet\src\Libplanet.Types\Libplanet.Types.csproj", "{890AEE56-A3F5-4479-9EE7-3C4060304C21}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Crypto", "lib9c\.Libplanet\Libplanet.Crypto\Libplanet.Crypto.csproj", "{BFA3CFC7-3725-4A85-B2F0-35998DFDEE32}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Libplanet.Crypto", "lib9c\.Libplanet\src\Libplanet.Crypto\Libplanet.Crypto.csproj", "{BFA3CFC7-3725-4A85-B2F0-35998DFDEE32}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

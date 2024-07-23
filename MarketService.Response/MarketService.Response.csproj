@@ -6,7 +6,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\lib9c\Lib9c\Lib9c.csproj" />
-        <ProjectReference Include="..\lib9c\.Libplanet\Libplanet\Libplanet.csproj" />
+        <ProjectReference Include="..\lib9c\.Libplanet\src\Libplanet\Libplanet.csproj" />
     </ItemGroup>
 
 </Project>
