@@ -1,10 +1,15 @@
+using Bencodex;
+using Bencodex.Types;
+using Libplanet.Types.Blocks;
 using Nekoyume.Shared.Hubs;
 
 namespace MarketService;
 
 public class Receiver : IActionEvaluationHubReceiver
 {
+    public Block Tip;
     private readonly ILogger<Receiver> _logger;
+    private readonly Codec _codec = new Codec();
 
     public Receiver(ILogger<Receiver> logger)
     {
@@ -23,6 +28,9 @@ public class Receiver : IActionEvaluationHubReceiver
 
     public void OnRenderBlock(byte[] oldTip, byte[] newTip)
     {
+        var dict = (Dictionary)_codec.Decode(newTip);
+        var newTipBlock = BlockMarshaler.UnmarshalBlock(dict);
+        Tip = newTipBlock;
     }
 
     public void OnReorged(byte[] oldTip, byte[] newTip, byte[] branchpoint)

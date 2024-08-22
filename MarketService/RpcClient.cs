@@ -7,7 +7,6 @@ using Grpc.Net.Client;
 using Lib9c.Model.Order;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
-using Libplanet.Types.Blocks;
 using MagicOnion.Client;
 using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -539,10 +538,11 @@ public class RpcClient
 
     public async Task<byte[]> GetBlockHashBytes()
     {
-        var tipBytes = await Service.GetTip();
-        var block =
-            BlockMarshaler.UnmarshalBlock((Dictionary) _codec.Decode(tipBytes));
-        return block.Hash.ToByteArray();
+        while (!_ready)
+        {
+            await Task.Delay(1000);
+        }
+        return _receiver.Tip.Hash.ToByteArray();
     }
 
     public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
