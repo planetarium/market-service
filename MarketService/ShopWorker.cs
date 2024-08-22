@@ -22,9 +22,6 @@ public class ShopWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-#pragma warning disable CS4014
-        _rpcClient.StartAsync(stoppingToken);
-#pragma warning restore CS4014
         while (true)
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
@@ -33,7 +30,7 @@ public class ShopWorker : BackgroundService
             _logger.LogInformation("Start sync shop");
             stopWatch.Start();
 
-            while (!_rpcClient.Init) await Task.Delay(100, stoppingToken);
+            while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
 
             var hashBytes = await _rpcClient.GetBlockHashBytes();
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);

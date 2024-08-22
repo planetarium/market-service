@@ -7,6 +7,7 @@ using Grpc.Net.Client;
 using Lib9c.Model.Order;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
+using Libplanet.Types.Blocks;
 using MagicOnion.Client;
 using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
@@ -53,8 +54,10 @@ public class RpcClient
     };
 
     public IBlockChainService Service = null!;
+    private IActionEvaluationHub _hub;
 
     public bool Ready => _ready;
+    public Block Tip => _receiver.Tip;
 
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
@@ -79,53 +82,61 @@ public class RpcClient
         _contextFactory = contextFactory;
     }
 
-    public bool Init { get; protected set; }
-
     public async Task StartAsync(CancellationToken stoppingToken)
     {
-        while (true)
+        _ = Task.Run(async () =>
         {
-            if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
-
-            try
+            while (true)
             {
-                var hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
-                    _channel, _receiver, cancellationToken: stoppingToken);
-                _logger.LogDebug("Connected to hub");
-                Service = MagicOnionClient.Create<IBlockChainService>(_channel).WithCancellationToken(stoppingToken);
-                _logger.LogDebug("Connected to service");
+                if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
-                await hub.JoinAsync(_address.ToHex());
-                await Service.AddClient(_address.ToByteArray());
-                _logger.LogInformation("Joined to RPC headless");
-                Init = true;
-                _ready = true;
+                try
+                {
+                    _hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
+                        _channel, _receiver, cancellationToken: stoppingToken);
+                    _logger.LogDebug("Connected to hub");
+                    Service = MagicOnionClient.Create<IBlockChainService>(_channel)
+                        .WithCancellationToken(stoppingToken);
+                    _logger.LogDebug("Connected to service");
 
-                _logger.LogDebug("Waiting for disconnecting");
-                await hub.WaitForDisconnect();
+                    await _hub.JoinAsync(_address.ToHex());
+                    await Service.AddClient(_address.ToByteArray());
+                    _logger.LogInformation("Joined to RPC headless");
+                    _ready = true;
+
+                    _logger.LogDebug("Waiting for disconnecting");
+                    await _hub.WaitForDisconnect();
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(exception, "Error occurred");
+                    _ready = false;
+                }
+                finally
+                {
+                    _logger.LogDebug("Retry to connect again");
+                }
             }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Error occurred");
-                _ready = false;
-            }
-            finally
-            {
-                _logger.LogDebug("Retry to connect again");
-            }
-        }
+        }, stoppingToken);
+
+        await Task.CompletedTask;
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await _hub.LeaveAsync();
     }
 
     public async Task<List<OrderDigest>> GetOrderDigests(ItemSubType itemSubType, byte[] hashBytes)
     {
-        while (!Init) await Task.Delay(100);
+        while (Tip is null) await Task.Delay(100);
 
         var orderDigestList = new List<OrderDigest>();
         try
         {
             var addressList = GetShopAddress(itemSubType);
             var result =
-                await Service.GetBulkStateByBlockHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
+                await Service.GetBulkStateByStateRootHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
             var shopStates = GetShopStates(result);
             foreach (var shopState in shopStates)
             foreach (var orderDigest in shopState.OrderDigestList)
@@ -362,7 +373,7 @@ public class RpcClient
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
         CostumeStatSheet costumeStatSheet)
     {
-        while (!Init) await Task.Delay(100);
+        while (Tip is null) await Task.Delay(100);
 
         try
         {
@@ -538,7 +549,7 @@ public class RpcClient
 
     public async Task<byte[]> GetBlockHashBytes()
     {
-        while (!_ready)
+        while (Tip is null)
         {
             await Task.Delay(1000);
         }

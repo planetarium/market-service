@@ -17,13 +17,6 @@ public class ProductWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_rpcClient.Init)
-        {
-#pragma warning disable CS4014
-            _rpcClient.StartAsync(stoppingToken);
-#pragma warning restore CS4014
-        }
-
         while (true)
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
