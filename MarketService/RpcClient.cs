@@ -47,6 +47,7 @@ public class RpcClient
     private readonly ILogger<RpcClient> _logger;
     private readonly Receiver _receiver;
     private bool _ready;
+    private bool _selfDisconnect;
 
     private readonly ParallelOptions _parallelOptions = new()
     {
@@ -84,46 +85,52 @@ public class RpcClient
 
     public async Task StartAsync(CancellationToken stoppingToken)
     {
-        _ = Task.Run(async () =>
+        while (true)
         {
-            while (true)
+            if (stoppingToken.IsCancellationRequested)
             {
-                if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    _hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
-                        _channel, _receiver, cancellationToken: stoppingToken);
-                    _logger.LogDebug("Connected to hub");
-                    Service = MagicOnionClient.Create<IBlockChainService>(_channel)
-                        .WithCancellationToken(stoppingToken);
-                    _logger.LogDebug("Connected to service");
-
-                    await _hub.JoinAsync(_address.ToHex());
-                    await Service.AddClient(_address.ToByteArray());
-                    _logger.LogInformation("Joined to RPC headless");
-                    _ready = true;
-
-                    _logger.LogDebug("Waiting for disconnecting");
-                    await _hub.WaitForDisconnect();
-                }
-                catch (Exception exception)
-                {
-                    _logger.LogError(exception, "Error occurred");
-                    _ready = false;
-                }
-                finally
-                {
-                    _logger.LogDebug("Retry to connect again");
-                }
+                _selfDisconnect = true;
+                stoppingToken.ThrowIfCancellationRequested();
             }
-        }, stoppingToken);
 
-        await Task.CompletedTask;
+            try
+            {
+                await Join(stoppingToken);
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(exception, "Error occurred");
+                _ready = false;
+            }
+            if (_selfDisconnect)
+            {
+                _logger.LogInformation("self disconnect");
+                break;
+            }
+        }
+    }
+
+    private async Task Join(CancellationToken stoppingToken)
+    {
+        _hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
+            _channel, _receiver, cancellationToken: stoppingToken);
+        _logger.LogDebug("Connected to hub");
+        Service = MagicOnionClient.Create<IBlockChainService>(_channel)
+            .WithCancellationToken(stoppingToken);
+        _logger.LogDebug("Connected to service");
+
+        await _hub.JoinAsync(_address.ToHex());
+        await Service.AddClient(_address.ToByteArray());
+        _logger.LogInformation("Joined to RPC headless");
+        _ready = true;
+
+        _logger.LogDebug("Waiting for disconnecting");
+        await _hub.WaitForDisconnect();
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _selfDisconnect = true;
         await _hub.LeaveAsync();
     }
 
