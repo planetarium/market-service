@@ -25,11 +25,11 @@ public class ProductWorker : BackgroundService
             _logger.LogInformation("[ProductWorker]Start sync product");
             stopWatch.Start();
 
-            while (!_rpcClient.Init) await Task.Delay(100, stoppingToken);
+            while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
 
             try
             {
-                var hashBytes = await _rpcClient.GetBlockHashBytes();
+                var hashBytes = await _rpcClient.GetBlockStateRootHashBytes();
                 var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
                 var crystalMonsterCollectionMultiplierSheet =
                     await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);

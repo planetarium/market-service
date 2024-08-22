@@ -32,7 +32,7 @@ public class ShopWorker : BackgroundService
 
             while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
 
-            var hashBytes = await _rpcClient.GetBlockHashBytes();
+            var hashBytes = await _rpcClient.GetBlockStateRootHashBytes();
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);

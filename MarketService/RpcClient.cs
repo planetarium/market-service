@@ -533,7 +533,7 @@ public class RpcClient
     public async Task<T> GetSheet<T>(byte[] hashBytes) where T : ISheet, new()
     {
         var address = Addresses.GetSheetAddress<T>();
-        var result = await Service.GetStateByBlockHash(
+        var result = await Service.GetStateByStateRootHash(
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             address.ToByteArray());
@@ -547,13 +547,13 @@ public class RpcClient
         throw new Exception();
     }
 
-    public async Task<byte[]> GetBlockHashBytes()
+    public async Task<byte[]> GetBlockStateRootHashBytes()
     {
         while (Tip is null)
         {
             await Task.Delay(1000);
         }
-        return _receiver.Tip.Hash.ToByteArray();
+        return _receiver.Tip.StateRootHash.ToByteArray();
     }
 
     public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
@@ -662,7 +662,7 @@ public class RpcClient
     public async Task<Dictionary<Address, IValue>> GetStates(byte[] hashBytes, byte[] accountBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
-        var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, addressList);
+        var queryResult = await Service.GetBulkStateByStateRootHash(hashBytes, accountBytes, addressList);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
@@ -683,7 +683,7 @@ public class RpcClient
             .ToList();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, chunk);
+            var queryResult = await Service.GetBulkStateByStateRootHash(hashBytes, accountBytes, chunk);
             foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
         });
 
@@ -693,7 +693,7 @@ public class RpcClient
     public async Task<Dictionary<Address, AgentState>> GetAgentStates(byte[] hashBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, AgentState>();
-        var queryResult = await Service.GetAgentStatesByBlockHash(hashBytes, addressList);
+        var queryResult = await Service.GetAgentStatesByStateRootHash(hashBytes, addressList);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
@@ -715,7 +715,7 @@ public class RpcClient
 
     public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
-        var marketResult = await Service.GetStateByBlockHash(
+        var marketResult = await Service.GetStateByStateRootHash(
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             Addresses.Market.ToByteArray());
