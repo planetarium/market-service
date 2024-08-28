@@ -8,6 +8,7 @@ namespace MarketService;
 public class Receiver : IActionEvaluationHubReceiver
 {
     public Block Tip;
+    public Block PreviousTip;
     private readonly ILogger<Receiver> _logger;
     private readonly Codec _codec = new Codec();
 
@@ -28,6 +29,7 @@ public class Receiver : IActionEvaluationHubReceiver
     {
         var dict = (Dictionary)_codec.Decode(newTip);
         var newTipBlock = BlockMarshaler.UnmarshalBlock(dict);
+        PreviousTip = Tip;
         Tip = newTipBlock;
     }
 

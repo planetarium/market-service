@@ -24,7 +24,16 @@ public class ProductWorker : BackgroundService
             var stopWatch = new Stopwatch();
             _logger.LogInformation("[ProductWorker]Start sync product");
 
-            while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
+            var retry = 0;
+            while (_rpcClient.Tip?.Index == _rpcClient.PreviousTip?.Index)
+            {
+                await Task.Delay((5 - retry) * 1000, stoppingToken);
+                retry++;
+                if (retry >= 3)
+                {
+                    throw new InvalidOperationException();
+                }
+            }
 
             stopWatch.Start();
 
@@ -44,8 +53,8 @@ public class ProductWorker : BackgroundService
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            await Task.Delay(1000, stoppingToken);
             _logger.LogInformation("[ProductWorker]Complete sync product on {BlockIndex}. {TotalElapsed}", _rpcClient.Tip.Index, ts);
+            await Task.Delay(8000, stoppingToken);
         }
     }
 }

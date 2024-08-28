@@ -59,6 +59,7 @@ public class RpcClient
 
     public bool Ready => _ready;
     public Block Tip => _receiver.Tip;
+    public Block PreviousTip => _receiver.PreviousTip;
 
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,

@@ -27,9 +27,19 @@ public class ShopWorker : BackgroundService
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
             var stopWatch = new Stopwatch();
-
-            while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
             _logger.LogInformation("Start sync shop");
+
+            var retry = 0;
+            while (_rpcClient.Tip?.Index == _rpcClient.PreviousTip?.Index)
+            {
+                await Task.Delay((5 - retry) * 1000, stoppingToken);
+                retry++;
+                if (retry >= 3)
+                {
+                    throw new InvalidOperationException();
+                }
+            }
+
             stopWatch.Start();
 
             var hashBytes = await _rpcClient.GetBlockStateRootHashBytes();
