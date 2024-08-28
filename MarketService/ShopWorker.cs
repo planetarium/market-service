@@ -27,10 +27,10 @@ public class ShopWorker : BackgroundService
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
             var stopWatch = new Stopwatch();
-            _logger.LogInformation("Start sync shop");
-            stopWatch.Start();
 
             while (_rpcClient.Tip is null) await Task.Delay(100, stoppingToken);
+            _logger.LogInformation("Start sync shop");
+            stopWatch.Start();
 
             var hashBytes = await _rpcClient.GetBlockStateRootHashBytes();
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
@@ -43,8 +43,8 @@ public class ShopWorker : BackgroundService
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            _logger.LogInformation("Complete sync shop. {TotalElapsed}", ts);
-            await Task.Delay(3000, stoppingToken);
+            _logger.LogInformation("Complete sync shop on {BlockIndex}. {TotalElapsed}", _rpcClient.Tip, ts);
+            await Task.Delay(8000, stoppingToken);
         }
     }
 }
