@@ -47,6 +47,7 @@ public class RpcClient
     private readonly ILogger<RpcClient> _logger;
     private readonly Receiver _receiver;
     private bool _ready;
+    private bool _selfDisconnect;
 
     private readonly ParallelOptions _parallelOptions = new()
     {
@@ -54,8 +55,11 @@ public class RpcClient
     };
 
     public IBlockChainService Service = null!;
+    private IActionEvaluationHub _hub;
 
     public bool Ready => _ready;
+    public Block Tip => _receiver.Tip;
+    public Block PreviousTip => _receiver.PreviousTip;
 
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
@@ -80,53 +84,67 @@ public class RpcClient
         _contextFactory = contextFactory;
     }
 
-    public bool Init { get; protected set; }
-
     public async Task StartAsync(CancellationToken stoppingToken)
     {
         while (true)
         {
-            if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
+            if (stoppingToken.IsCancellationRequested)
+            {
+                _selfDisconnect = true;
+                stoppingToken.ThrowIfCancellationRequested();
+            }
 
             try
             {
-                var hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
-                    _channel, _receiver, cancellationToken: stoppingToken);
-                _logger.LogDebug("Connected to hub");
-                Service = MagicOnionClient.Create<IBlockChainService>(_channel).WithCancellationToken(stoppingToken);
-                _logger.LogDebug("Connected to service");
-
-                await hub.JoinAsync(_address.ToHex());
-                await Service.AddClient(_address.ToByteArray());
-                _logger.LogInformation("Joined to RPC headless");
-                Init = true;
-                _ready = true;
-
-                _logger.LogDebug("Waiting for disconnecting");
-                await hub.WaitForDisconnect();
+                await Join(stoppingToken);
             }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Error occurred");
                 _ready = false;
             }
-            finally
+            if (_selfDisconnect)
             {
-                _logger.LogDebug("Retry to connect again");
+                _logger.LogInformation("self disconnect");
+                break;
             }
         }
     }
 
+    private async Task Join(CancellationToken stoppingToken)
+    {
+        _hub = await StreamingHubClient.ConnectAsync<IActionEvaluationHub, IActionEvaluationHubReceiver>(
+            _channel, _receiver, cancellationToken: stoppingToken);
+        _logger.LogDebug("Connected to hub");
+        Service = MagicOnionClient.Create<IBlockChainService>(_channel)
+            .WithCancellationToken(stoppingToken);
+        _logger.LogDebug("Connected to service");
+
+        await _hub.JoinAsync(_address.ToHex());
+        await Service.AddClient(_address.ToByteArray());
+        _logger.LogInformation("Joined to RPC headless");
+        _ready = true;
+
+        _logger.LogDebug("Waiting for disconnecting");
+        await _hub.WaitForDisconnect();
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _selfDisconnect = true;
+        await _hub.LeaveAsync();
+    }
+
     public async Task<List<OrderDigest>> GetOrderDigests(ItemSubType itemSubType, byte[] hashBytes)
     {
-        while (!Init) await Task.Delay(100);
+        while (Tip is null) await Task.Delay(100);
 
         var orderDigestList = new List<OrderDigest>();
         try
         {
             var addressList = GetShopAddress(itemSubType);
             var result =
-                await Service.GetBulkStateByBlockHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
+                await Service.GetBulkStateByStateRootHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
             var shopStates = GetShopStates(result);
             foreach (var shopState in shopStates)
             foreach (var orderDigest in shopState.OrderDigestList)
@@ -363,7 +381,7 @@ public class RpcClient
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
         CostumeStatSheet costumeStatSheet)
     {
-        while (!Init) await Task.Delay(100);
+        while (Tip is null) await Task.Delay(100);
 
         try
         {
@@ -523,7 +541,7 @@ public class RpcClient
     public async Task<T> GetSheet<T>(byte[] hashBytes) where T : ISheet, new()
     {
         var address = Addresses.GetSheetAddress<T>();
-        var result = await Service.GetStateByBlockHash(
+        var result = await Service.GetStateByStateRootHash(
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             address.ToByteArray());
@@ -537,12 +555,13 @@ public class RpcClient
         throw new Exception();
     }
 
-    public async Task<byte[]> GetBlockHashBytes()
+    public async Task<byte[]> GetBlockStateRootHashBytes()
     {
-        var tipBytes = await Service.GetTip();
-        var block =
-            BlockMarshaler.UnmarshalBlock((Dictionary) _codec.Decode(tipBytes));
-        return block.Hash.ToByteArray();
+        while (Tip is null)
+        {
+            await Task.Delay(1000);
+        }
+        return _receiver.Tip.StateRootHash.ToByteArray();
     }
 
     public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
@@ -651,7 +670,7 @@ public class RpcClient
     public async Task<Dictionary<Address, IValue>> GetStates(byte[] hashBytes, byte[] accountBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
-        var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, addressList);
+        var queryResult = await Service.GetBulkStateByStateRootHash(hashBytes, accountBytes, addressList);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
@@ -672,7 +691,7 @@ public class RpcClient
             .ToList();
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
-            var queryResult = await Service.GetBulkStateByBlockHash(hashBytes, accountBytes, chunk);
+            var queryResult = await Service.GetBulkStateByStateRootHash(hashBytes, accountBytes, chunk);
             foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
         });
 
@@ -682,7 +701,7 @@ public class RpcClient
     public async Task<Dictionary<Address, AgentState>> GetAgentStates(byte[] hashBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, AgentState>();
-        var queryResult = await Service.GetAgentStatesByBlockHash(hashBytes, addressList);
+        var queryResult = await Service.GetAgentStatesByStateRootHash(hashBytes, addressList);
         queryResult
             .AsParallel()
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
@@ -704,7 +723,7 @@ public class RpcClient
 
     public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
-        var marketResult = await Service.GetStateByBlockHash(
+        var marketResult = await Service.GetStateByStateRootHash(
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             Addresses.Market.ToByteArray());

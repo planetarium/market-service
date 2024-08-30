@@ -66,6 +66,7 @@ public class Startup
         );
         services.AddSingleton<RpcClient>();
         services.AddSingleton<Receiver>();
+        services.AddHostedService<RpcService>();
         WorkerOptions workerOptions = new();
         Configuration.GetSection(WorkerOptions.WorkerConfig)
             .Bind(workerOptions);

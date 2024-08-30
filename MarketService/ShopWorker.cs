@@ -22,20 +22,27 @@ public class ShopWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-#pragma warning disable CS4014
-        _rpcClient.StartAsync(stoppingToken);
-#pragma warning restore CS4014
         while (true)
         {
             if (stoppingToken.IsCancellationRequested) stoppingToken.ThrowIfCancellationRequested();
 
             var stopWatch = new Stopwatch();
             _logger.LogInformation("Start sync shop");
+
+            var retry = 0;
+            while (_rpcClient.Tip?.Index == _rpcClient.PreviousTip?.Index)
+            {
+                await Task.Delay((5 - retry) * 1000, stoppingToken);
+                retry++;
+                if (retry >= 3)
+                {
+                    throw new InvalidOperationException();
+                }
+            }
+
             stopWatch.Start();
 
-            while (!_rpcClient.Init) await Task.Delay(100, stoppingToken);
-
-            var hashBytes = await _rpcClient.GetBlockHashBytes();
+            var hashBytes = await _rpcClient.GetBlockStateRootHashBytes();
             var crystalEquipmentGrindingSheet = await _rpcClient.GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
             var crystalMonsterCollectionMultiplierSheet =
                 await _rpcClient.GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
@@ -46,8 +53,8 @@ public class ShopWorker : BackgroundService
 
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
-            _logger.LogInformation("Complete sync shop. {TotalElapsed}", ts);
-            await Task.Delay(3000, stoppingToken);
+            _logger.LogInformation("Complete sync shop on {BlockIndex}. {TotalElapsed}", _rpcClient.Tip, ts);
+            await Task.Delay(8000, stoppingToken);
         }
     }
 }

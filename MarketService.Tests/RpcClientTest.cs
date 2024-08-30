@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,9 @@ using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Assets;
 using Libplanet.Mocks;
+using Libplanet.Types.Blocks;
+using Libplanet.Types.Evidence;
+using Libplanet.Types.Tx;
 using MagicOnion;
 using MagicOnion.Server;
 using MarketService.Models;
@@ -668,7 +672,11 @@ public class RpcClientTest
             contextFactory)
         {
             Service = service;
-            Init = true;
+            var path = "../../../genesis";
+            var buffer = File.ReadAllBytes(path);
+            var dict = (Dictionary)new Codec().Decode(buffer);
+            var block = BlockMarshaler.UnmarshalBlock(dict);
+            receiver.Tip = block;
         }
     }
 
@@ -780,8 +788,7 @@ public class RpcClientTest
 
         public UnaryResult<Dictionary<byte[], byte[]>> GetAgentStatesByStateRootHash(
             byte[] stateRootHashBytes,
-            IEnumerable<byte[]> addressBytesList) =>
-            throw new NotImplementedException();
+            IEnumerable<byte[]> addressBytesList) => GetAgentStatesByBlockHash(stateRootHashBytes, addressBytesList);
 
         public UnaryResult<Dictionary<byte[], byte[]>> GetAvatarStatesByBlockHash(
             byte[] blockHashBytes,
