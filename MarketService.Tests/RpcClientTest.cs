@@ -8,6 +8,7 @@ using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
 using Lib9c.Model.Order;
+using Lib9c.Renderers;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Assets;
@@ -329,10 +330,10 @@ public class RpcClientTest
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
 #pragma warning restore EF1001
         var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
+        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()), new ActionRenderer());
         using var logger = _output.BuildLoggerFor<RpcClient>();
         _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            logger, receiver, _contextFactory, _testService);
+            logger, receiver, _contextFactory, _testService, new ActionRenderer());
     }
 
     [Theory]
@@ -668,8 +669,8 @@ public class RpcClientTest
     private class TestClient : RpcClient
     {
         public TestClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
-            IDbContextFactory<MarketContext> contextFactory, TestService service) : base(options, logger, receiver,
-            contextFactory)
+            IDbContextFactory<MarketContext> contextFactory, TestService service, ActionRenderer renderer) : base(options, logger, receiver,
+            contextFactory, renderer)
         {
             Service = service;
             var path = "../../../genesis";
