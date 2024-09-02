@@ -54,7 +54,7 @@ public class ProductWorker : BackgroundService
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
             _logger.LogInformation("[ProductWorker]Complete sync product on {BlockIndex}. {TotalElapsed}", _rpcClient.Tip.Index, ts);
-            await Task.Delay(8000, stoppingToken);
+            await Task.Delay(6000 * 5, stoppingToken);
         }
     }
 }
