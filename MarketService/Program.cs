@@ -1,4 +1,8 @@
 using System.Text.Json.Serialization;
+using Lib9c.Formatters;
+using Lib9c.Renderers;
+using MessagePack;
+using MessagePack.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -68,6 +72,13 @@ public class Startup
         services.AddSingleton<Receiver>();
         services.AddHostedService<RpcService>();
         WorkerOptions workerOptions = new();
+        services.AddSingleton<ActionRenderer>();
+        var resolver = MessagePack.Resolvers.CompositeResolver.Create(
+            NineChroniclesResolver.Instance,
+            StandardResolver.Instance
+        );
+        var options = MessagePackSerializerOptions.Standard.WithResolver(resolver);
+        MessagePackSerializer.DefaultOptions = options;
         Configuration.GetSection(WorkerOptions.WorkerConfig)
             .Bind(workerOptions);
         if (workerOptions.SyncShop)

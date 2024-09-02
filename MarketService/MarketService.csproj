@@ -31,6 +31,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\lib9c\Lib9c.MessagePack\Lib9c.MessagePack.csproj" />
         <ProjectReference Include="..\lib9c\Lib9c\Lib9c.csproj" />
         <ProjectReference Include="..\MarketService.Response\MarketService.Response.csproj" />
         <ProjectReference Include="..\NineChronicles.RPC.Shared\NineChronicles.RPC.Shared\NineChronicles.RPC.Shared.csproj" />

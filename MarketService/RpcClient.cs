@@ -1,10 +1,13 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Reactive.Subjects;
 using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Lib9c.Model.Order;
+using Lib9c.Renderers;
+using Libplanet.Action;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Blocks;
@@ -13,6 +16,8 @@ using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nekoyume;
+using Nekoyume.Action;
+using Nekoyume.Action.Guild.Migration;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
@@ -61,9 +66,10 @@ public class RpcClient
     public Block Tip => _receiver.Tip;
     public Block PreviousTip => _receiver.PreviousTip;
 
+    private readonly ActionRenderer _actionRenderer;
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
-        IDbContextFactory<MarketContext> contextFactory)
+        IDbContextFactory<MarketContext> contextFactory, ActionRenderer actionRenderer)
     {
         _logger = logger;
         _address = new PrivateKey().Address;
@@ -82,6 +88,149 @@ public class RpcClient
         );
         _receiver = receiver;
         _contextFactory = contextFactory;
+        _actionRenderer = actionRenderer;
+        _actionRenderer.ActionRenderSubject.Subscribe(RenderAction);
+    }
+
+    public async void RenderAction(ActionEvaluation<ActionBase> ev)
+    {
+        if (ev.Exception is null)
+        {
+            var seed = ev.RandomSeed;
+            var random = new LocalRandom(seed);
+            var stateRootHash = ev.OutputState;
+            var hashBytes = stateRootHash.ToByteArray();
+            switch (ev.Action)
+            {
+                // Insert new product
+                case RegisterProduct registerProduct:
+                {
+                    var crystalEquipmentGrindingSheet = await GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
+                    var crystalMonsterCollectionMultiplierSheet =
+                        await GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
+                    var costumeStatSheet = await GetSheet<CostumeStatSheet>(hashBytes);
+                    var products = new List<Product>();
+                    var productIds = registerProduct.RegisterInfos.Select(_ => random.GenerateRandomGuid()).ToList();
+                    var states = await GetProductStates(productIds, hashBytes);
+                    foreach (var kv in states)
+                    {
+                        if (kv.Value is List deserialized)
+                        {
+                            products.Add(ProductFactory.DeserializeProduct(deserialized));
+                        }
+                    }
+
+                    await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                    break;
+                }
+                // Update product exist = false
+                case BuyProduct buyProduct:
+                {
+                    var orderIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var productInfo in buyProduct.ProductInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            orderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            productIds.Add(productInfo.ProductId);
+                        }
+                    }
+
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (orderIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, true);
+                    }
+
+                    if (productIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, false);
+                    }
+
+                    break;
+                }
+                case CancelProductRegistration cancelProductRegistration:
+                {
+                    var orderIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var productInfo in cancelProductRegistration.ProductInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            orderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            productIds.Add(productInfo.ProductId);
+                        }
+                    }
+
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (orderIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, true);
+                    }
+
+                    if (productIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, false);
+                    }
+
+                    break;
+                }
+                // Insert new product and Update product exist = false
+                case ReRegisterProduct reRegisterProduct:
+                {
+                    var deletedOrderIds = new List<Guid>();
+                    var deletedProductIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var (productInfo, _) in reRegisterProduct.ReRegisterInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            deletedOrderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            deletedProductIds.Add(productInfo.ProductId);
+                        }
+                        productIds.Add(random.GenerateRandomGuid());
+                    }
+                    var crystalEquipmentGrindingSheet = await GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
+                    var crystalMonsterCollectionMultiplierSheet =
+                        await GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
+                    var costumeStatSheet = await GetSheet<CostumeStatSheet>(hashBytes);
+                    var products = new List<Product>();
+                    var states = await GetProductStates(productIds, hashBytes);
+                    foreach (var kv in states)
+                    {
+                        // check db all product ids avoid already synced products
+                        if (kv.Value is List deserialized)
+                        {
+                            products.Add(ProductFactory.DeserializeProduct(deserialized));
+                        }
+                    }
+
+                    await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (deletedOrderIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, true);
+                    }
+
+                    if (deletedProductIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, false);
+                    }
+
+                    break;
+                }
+            }
+        }
     }
 
     public async Task StartAsync(CancellationToken stoppingToken)
@@ -757,5 +906,15 @@ public class RpcClient
             }
         });
         return orderDigests.ToList();
+    }
+
+    internal class LocalRandom : System.Random, IRandom
+    {
+        public int Seed { get; }
+
+        public LocalRandom(int seed) : base(seed)
+        {
+            Seed = seed;
+        }
     }
 }
