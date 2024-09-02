@@ -13,8 +13,6 @@ using Libplanet.Crypto;
 using Libplanet.Types.Assets;
 using Libplanet.Mocks;
 using Libplanet.Types.Blocks;
-using Libplanet.Types.Evidence;
-using Libplanet.Types.Tx;
 using MagicOnion;
 using MagicOnion.Server;
 using MarketService.Models;
@@ -328,7 +326,7 @@ public class RpcClientTest
             new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
 #pragma warning restore EF1001
-        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
+        var rpcConfigOptions = new RpcConfigOptions { Host = "localhost", Port = 5000 };
         var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
         using var logger = _output.BuildLoggerFor<RpcClient>();
         _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
@@ -365,7 +363,7 @@ public class RpcClientTest
             tradableItem = ItemFactory.CreateCostume(row, order.TradableId);
         }
 
-        item = (ItemBase) tradableItem;
+        item = (ItemBase)tradableItem;
         var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
 
         var orderDigest = new OrderDigest(

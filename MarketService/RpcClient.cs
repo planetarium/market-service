@@ -207,7 +207,9 @@ public class RpcClient
                 ItemSubType.EarCostume,
                 ItemSubType.EyeCostume,
                 ItemSubType.TailCostume,
-                ItemSubType.Title
+                ItemSubType.Title,
+                ItemSubType.Scroll,
+                ItemSubType.Circle
             };
 
             var agentAddresses = new ConcurrentBag<Address>();
