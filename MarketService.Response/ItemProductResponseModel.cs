@@ -20,6 +20,7 @@ namespace MarketService.Response
         public bool Exist { get; set; }
         public bool Legacy { get; set; }
         public int ItemId { get; set; }
+        public int? IconId { get; set; }
         public int Grade { get; set; }
         public ItemType ItemType { get; set; }
         public ItemSubType ItemSubType { get; set; }

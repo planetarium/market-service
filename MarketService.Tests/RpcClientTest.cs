@@ -496,8 +496,10 @@ public class RpcClientTest
         Assert.True(newProduct.Exist);
     }
 
-    [Fact]
-    public async Task SyncProduct()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(10510000)]
+    public async Task SyncProduct(int? iconId)
     {
         var ct = new CancellationToken();
 #pragma warning disable EF1001
@@ -517,7 +519,12 @@ public class RpcClientTest
             {
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
-                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
+                var item = (Equipment)ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
+                if (iconId is not null)
+                {
+                    item.IconId = (int)iconId;
+                }
+
                 var itemProduct = new ItemProduct
                 {
                     ProductId = productId,
@@ -553,6 +560,7 @@ public class RpcClientTest
                 Assert.True(itemProduct.CombatPoint > 0);
                 Assert.True(itemProduct.Level > 0);
                 Assert.Equal(1, itemProduct.Grade);
+                Assert.Equal(iconId, itemProduct.IconId);
             }
         }
 

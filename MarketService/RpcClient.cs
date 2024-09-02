@@ -364,6 +364,12 @@ public class RpcClient
                         Exist = true,
                         Legacy = true,
                     };
+
+                    if (item is Equipment equipment)
+                    {
+                        itemProduct.IconId = equipment.IconId;
+                    }
+
                     itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
                         crystalMonsterCollectionMultiplierSheet);
                     productBag.Add(itemProduct);
@@ -503,6 +509,11 @@ public class RpcClient
                     RegisteredBlockIndex = itemProduct.RegisteredBlockIndex,
                     Exist = true,
                 };
+
+                if (item is Equipment equipment)
+                {
+                    itemProductModel.IconId = equipment.IconId;
+                }
 
                 itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
                     crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
