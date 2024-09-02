@@ -558,7 +558,8 @@ public class RpcClientTest
                 Assert.True(itemProduct.CombatPoint > 0);
                 Assert.True(itemProduct.Level > 0);
                 Assert.Equal(1, itemProduct.Grade);
-                Assert.Equal(iconId, itemProduct.IconId);
+                // If item does not have IconId, IconId is same as ItemId
+                Assert.Equal(iconId ?? _row.Id, itemProduct.IconId);
             }
         }
 
