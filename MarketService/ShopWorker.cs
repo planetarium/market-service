@@ -54,7 +54,7 @@ public class ShopWorker : BackgroundService
             stopWatch.Stop();
             var ts = stopWatch.Elapsed;
             _logger.LogInformation("Complete sync shop on {BlockIndex}. {TotalElapsed}", _rpcClient.Tip, ts);
-            await Task.Delay(6000 * 5, stoppingToken);
+            await Task.Delay(60000 * 5, stoppingToken);
         }
     }
 }
