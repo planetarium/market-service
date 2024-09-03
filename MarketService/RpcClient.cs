@@ -224,12 +224,12 @@ public class RpcClient
                     var marketContext = await _contextFactory.CreateDbContextAsync();
                     if (deletedOrderIds.Any())
                     {
-                        await UpdateProducts(productIds, marketContext, true);
+                        await UpdateProducts(deletedOrderIds, marketContext, true);
                     }
 
                     if (deletedProductIds.Any())
                     {
-                        await UpdateProducts(productIds, marketContext, false);
+                        await UpdateProducts(deletedProductIds, marketContext, false);
                     }
 
                     break;
