@@ -4,6 +4,7 @@ using Bencodex.Types;
 using Lib9c.Renderers;
 using Libplanet.Types.Blocks;
 using MessagePack;
+using Microsoft.Extensions.Options;
 using Nekoyume.Action;
 using Nekoyume.Shared.Hubs;
 
@@ -16,27 +17,32 @@ public class Receiver : IActionEvaluationHubReceiver
     private readonly ILogger<Receiver> _logger;
     private readonly Codec _codec = new Codec();
     private readonly ActionRenderer _actionRenderer;
+    private readonly WorkerOptions _workerOptions;
 
-    public Receiver(ILogger<Receiver> logger, ActionRenderer actionRenderer)
+    public Receiver(ILogger<Receiver> logger, ActionRenderer actionRenderer, IOptions<WorkerOptions> options)
     {
         _logger = logger;
         _actionRenderer = actionRenderer;
+        _workerOptions = options.Value;
     }
 
     public void OnRender(byte[] evaluation)
     {
-        using (var cp = new MemoryStream(evaluation))
+        if (_workerOptions.SyncProduct || _workerOptions.SyncShop)
         {
-            using (var decompressed = new MemoryStream())
+            using (var cp = new MemoryStream(evaluation))
             {
-                using (var df = new DeflateStream(cp, CompressionMode.Decompress))
+                using (var decompressed = new MemoryStream())
                 {
-                    df.CopyTo(decompressed);
-                    decompressed.Seek(0, SeekOrigin.Begin);
-                    var dec = decompressed.ToArray();
-                    var ev = MessagePackSerializer.Deserialize<NCActionEvaluation>(dec)
-                        .ToActionEvaluation();
-                    _actionRenderer.ActionRenderSubject.OnNext(ev);
+                    using (var df = new DeflateStream(cp, CompressionMode.Decompress))
+                    {
+                        df.CopyTo(decompressed);
+                        decompressed.Seek(0, SeekOrigin.Begin);
+                        var dec = decompressed.ToArray();
+                        var ev = MessagePackSerializer.Deserialize<NCActionEvaluation>(dec)
+                            .ToActionEvaluation();
+                        _actionRenderer.ActionRenderSubject.OnNext(ev);
+                    }
                 }
             }
         }

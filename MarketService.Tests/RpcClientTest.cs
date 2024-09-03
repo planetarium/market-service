@@ -330,7 +330,12 @@ public class RpcClientTest
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
 #pragma warning restore EF1001
         var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()), new ActionRenderer());
+        var workerOptions = new WorkerOptions
+        {
+            SyncProduct = false,
+            SyncShop = false,
+        };
+        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()), new ActionRenderer(), new OptionsWrapper<WorkerOptions>(workerOptions));
         using var logger = _output.BuildLoggerFor<RpcClient>();
         _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
             logger, receiver, _contextFactory, _testService, new ActionRenderer());
