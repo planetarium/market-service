@@ -518,10 +518,7 @@ public class RpcClientTest
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
                 var item = (Equipment)ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
-                if (iconId is not null)
-                {
-                    item.IconId = (int)iconId;
-                }
+                item.IconId = (int)iconId!;
 
                 var itemProduct = new ItemProduct
                 {

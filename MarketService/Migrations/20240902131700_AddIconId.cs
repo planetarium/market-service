@@ -15,6 +15,9 @@ namespace MarketService.Migrations
                 table: "products",
                 type: "integer",
                 nullable: true);
+
+            // Migrate old data: icon id is same value as item id
+            migrationBuilder.Sql("Update product SET iconid = itemid");
         }
 
         /// <inheritdoc />
