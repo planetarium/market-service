@@ -2,11 +2,10 @@ on:
   push:
     branches:
       - main
-      - 2023q1-previewnet
       - rc-*
       - hotfix/*
       - release/*
-      - upgrade/libplanet-4.0
+      - feature/custom-craft
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:
