@@ -495,7 +495,7 @@ public class RpcClientTest
     }
 
     [Theory]
-    [InlineData(null)]
+    [InlineData(0)]
     [InlineData(10510000)]
     public async Task SyncProduct(int? iconId)
     {
