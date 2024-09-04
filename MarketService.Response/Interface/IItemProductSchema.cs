@@ -20,4 +20,8 @@ public interface IItemProductSchema : IProductSchema
     public ICollection<SkillResponseModel> SkillModels { get; }
     public ICollection<StatResponseModel> StatModels { get; }
     public int OptionCountFromCombination { get; set; }
+
+    // Custom Crafted Equipment
+    public bool ByCustomCraft { get; set; }
+    public bool HasRandomOnlyIcon { get; set; }
 }

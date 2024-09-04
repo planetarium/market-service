@@ -33,6 +33,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
     [NotMapped]
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
+    public bool ByCustomCraft { get; set; }
+    public bool HasRandomOnlyIcon { get; set; }
+
     public int OptionCountFromCombination { get; set; }
 
     public ItemProductResponseModel ToResponse()
@@ -63,6 +66,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
             CrystalPerPrice = CrystalPerPrice,
             OptionCountFromCombination = OptionCountFromCombination,
             UnitPrice = UnitPrice,
+            ByCustomCraft = ByCustomCraft,
+            HasRandomOnlyIcon = HasRandomOnlyIcon,
         };
     }
 

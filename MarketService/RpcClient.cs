@@ -370,6 +370,8 @@ public class RpcClient
                     if (item is Equipment equipment)
                     {
                         itemProduct.IconId = equipment.IconId;
+                        itemProduct.ByCustomCraft = equipment.ByCustomCraft;
+                        itemProduct.HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
                     }
 
                     itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
@@ -515,6 +517,8 @@ public class RpcClient
                 if (item is Equipment equipment)
                 {
                     itemProductModel.IconId = equipment.IconId;
+                    itemProductModel.ByCustomCraft = equipment.ByCustomCraft;
+                    itemProductModel.HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
                 }
 
                 itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,

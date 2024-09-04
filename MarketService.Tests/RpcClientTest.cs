@@ -495,9 +495,13 @@ public class RpcClientTest
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(10510000)]
-    public async Task SyncProduct(int? iconId)
+    [InlineData(0, false, false)]
+    [InlineData(10510000, false, false)]
+    [InlineData(0, true, false)]
+    [InlineData(10510000, true, false)]
+    [InlineData(0, true, true)]
+    [InlineData(10510000, true, true)]
+    public async Task SyncProduct(int iconId, bool byCustomCraft, bool hasRandomOnlyIcon)
     {
         var ct = new CancellationToken();
 #pragma warning disable EF1001
@@ -518,7 +522,9 @@ public class RpcClientTest
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
                 var item = (Equipment)ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
-                item.IconId = (int)iconId!;
+                item.IconId = iconId;
+                item.ByCustomCraft = byCustomCraft;
+                item.HasRandomOnlyIcon = hasRandomOnlyIcon;
 
                 var itemProduct = new ItemProduct
                 {
@@ -556,7 +562,9 @@ public class RpcClientTest
                 Assert.True(itemProduct.Level > 0);
                 Assert.Equal(1, itemProduct.Grade);
                 // If item does not have IconId, IconId is same as ItemId
-                Assert.Equal(iconId ?? _row.Id, itemProduct.IconId);
+                Assert.Equal(iconId == 0 ? _row.Id : iconId, itemProduct.IconId);
+                Assert.Equal(byCustomCraft, itemProduct.ByCustomCraft);
+                Assert.Equal(hasRandomOnlyIcon, itemProduct.HasRandomOnlyIcon);
             }
         }
 
