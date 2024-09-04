@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MarketService.Migrations
 {
     [DbContext(typeof(MarketContext))]
-    [Migration("20240902131700_AddIconId")]
+    [Migration("20240904015056_AddIconId")]
     partial class AddIconId
     {
         /// <inheritdoc />
@@ -130,7 +130,7 @@ namespace MarketService.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("grade");
 
-                    b.Property<int?>("IconId")
+                    b.Property<int>("IconId")
                         .HasColumnType("integer")
                         .HasColumnName("iconid");
 

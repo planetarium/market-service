@@ -127,7 +127,7 @@ namespace MarketService.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("grade");
 
-                    b.Property<int?>("IconId")
+                    b.Property<int>("IconId")
                         .HasColumnType("integer")
                         .HasColumnName("iconid");
 

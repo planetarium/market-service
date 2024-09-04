@@ -14,10 +14,10 @@ namespace MarketService.Migrations
                 name: "iconid",
                 table: "products",
                 type: "integer",
-                nullable: true);
+                nullable: true
+            );
 
-            // Migrate old data: icon id is same value as item id
-            migrationBuilder.Sql("Update product SET iconid = itemid");
+            migrationBuilder.Sql("UPDATE products SET iconid=itemid");
         }
 
         /// <inheritdoc />
