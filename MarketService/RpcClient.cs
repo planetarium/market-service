@@ -208,8 +208,7 @@ public class RpcClient
                 ItemSubType.EyeCostume,
                 ItemSubType.TailCostume,
                 ItemSubType.Title,
-                ItemSubType.Scroll,
-                ItemSubType.Circle
+                // Currently shop is not managed by "order", so don't need to add new types in here
             };
 
             var agentAddresses = new ConcurrentBag<Address>();
@@ -366,13 +365,6 @@ public class RpcClient
                         Exist = true,
                         Legacy = true,
                     };
-
-                    if (item is Equipment equipment)
-                    {
-                        itemProduct.IconId = equipment.IconId;
-                        itemProduct.ByCustomCraft = equipment.ByCustomCraft;
-                        itemProduct.HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
-                    }
 
                     itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
                         crystalMonsterCollectionMultiplierSheet);
