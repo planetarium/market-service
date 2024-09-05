@@ -514,13 +514,6 @@ public class RpcClient
                     Exist = true,
                 };
 
-                if (item is Equipment equipment)
-                {
-                    itemProductModel.IconId = equipment.IconId;
-                    itemProductModel.ByCustomCraft = equipment.ByCustomCraft;
-                    itemProductModel.HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
-                }
-
                 itemProductModel.Update(itemProduct.TradableItem, itemProduct.Price, costumeStatSheet,
                     crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
                 productBag.Add(itemProductModel);

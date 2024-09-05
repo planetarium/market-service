@@ -107,6 +107,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
                 {
                     SetId = equipment.SetId;
                     Level = equipment.level;
+                    IconId = equipment.IconId;
+                    ByCustomCraft = equipment.ByCustomCraft;
+                    HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
                     OptionCountFromCombination = equipment.optionCountFromCombination;
                     var skillModels = new List<SkillModel>();
                     skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
