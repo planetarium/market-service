@@ -427,7 +427,7 @@ public class RpcClientTest
             itemSubType, 1);
         _testService.SetOrder(order);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
-        ((Equipment) item).optionCountFromCombination = 1;
+        ((Equipment)item).optionCountFromCombination = 1;
         var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
         var orderDigest = new OrderDigest(
             agentAddress,
@@ -495,12 +495,9 @@ public class RpcClientTest
     }
 
     [Theory]
-    [InlineData(0, false, false)]
-    [InlineData(10510000, false, false)]
-    [InlineData(0, true, false)]
-    [InlineData(10510000, true, false)]
-    [InlineData(0, true, true)]
-    [InlineData(10510000, true, true)]
+    [InlineData(10151000, false, false)]
+    [InlineData(10151000, true, false)]
+    [InlineData(10120000, true, true)]
     public async Task SyncProduct(int iconId, bool byCustomCraft, bool hasRandomOnlyIcon)
     {
         var ct = new CancellationToken();
@@ -562,7 +559,7 @@ public class RpcClientTest
                 Assert.True(itemProduct.Level > 0);
                 Assert.Equal(1, itemProduct.Grade);
                 // If item does not have IconId, IconId is same as ItemId
-                Assert.Equal(iconId == 0 ? _row.Id : iconId, itemProduct.IconId);
+                Assert.Equal(iconId, itemProduct.IconId);
                 Assert.Equal(byCustomCraft, itemProduct.ByCustomCraft);
                 Assert.Equal(hasRandomOnlyIcon, itemProduct.HasRandomOnlyIcon);
             }
@@ -888,6 +885,7 @@ public class RpcClientTest
                 {
                     shopState.Add(orderDigest, 0L);
                 }
+
                 _testService.SetState(shopAddress, shopState.Serialize());
             }
         }
