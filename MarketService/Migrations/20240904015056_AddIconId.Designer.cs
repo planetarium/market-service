@@ -3,6 +3,7 @@ using System;
 using MarketService;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MarketService.Migrations
 {
     [DbContext(typeof(MarketContext))]
-    partial class MarketContextModelSnapshot : ModelSnapshot
+    [Migration("20240904015056_AddIconId")]
+    partial class AddIconId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -107,10 +110,6 @@ namespace MarketService.Migrations
                 {
                     b.HasBaseType("MarketService.Models.ProductModel");
 
-                    b.Property<bool>("ByCustomCraft")
-                        .HasColumnType("boolean")
-                        .HasColumnName("bycustomcraft");
-
                     b.Property<int>("CombatPoint")
                         .HasColumnType("integer")
                         .HasColumnName("combatpoint");
@@ -130,10 +129,6 @@ namespace MarketService.Migrations
                     b.Property<int>("Grade")
                         .HasColumnType("integer")
                         .HasColumnName("grade");
-
-                    b.Property<bool>("HasRandomOnlyIcon")
-                        .HasColumnType("boolean")
-                        .HasColumnName("hasrandomonlyicon");
 
                     b.Property<int>("IconId")
                         .HasColumnType("integer")

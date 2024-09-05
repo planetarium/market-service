@@ -7,6 +7,7 @@ namespace MarketService.Response.Interface;
 public interface IItemProductSchema : IProductSchema
 {
     public int ItemId { get; set; }
+    public int IconId { get; set; }
     public int Grade { get; set; }
     public ItemType ItemType { get; set; }
     public ItemSubType ItemSubType { get; set; }
@@ -19,4 +20,8 @@ public interface IItemProductSchema : IProductSchema
     public ICollection<SkillResponseModel> SkillModels { get; }
     public ICollection<StatResponseModel> StatModels { get; }
     public int OptionCountFromCombination { get; set; }
+
+    // Custom Crafted Equipment
+    public bool ByCustomCraft { get; set; }
+    public bool HasRandomOnlyIcon { get; set; }
 }

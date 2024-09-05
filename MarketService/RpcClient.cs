@@ -207,7 +207,8 @@ public class RpcClient
                 ItemSubType.EarCostume,
                 ItemSubType.EyeCostume,
                 ItemSubType.TailCostume,
-                ItemSubType.Title
+                ItemSubType.Title,
+                // Currently shop is not managed by "order", so don't need to add new types in here
             };
 
             var agentAddresses = new ConcurrentBag<Address>();
@@ -364,6 +365,7 @@ public class RpcClient
                         Exist = true,
                         Legacy = true,
                     };
+
                     itemProduct.Update(item, orderDigest.Price, costumeStatSheet, crystalEquipmentGrindingSheet,
                         crystalMonsterCollectionMultiplierSheet);
                     productBag.Add(itemProduct);

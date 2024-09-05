@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Libplanet;
 using Libplanet.Crypto;
 using MarketService.Response.Interface;
 using Nekoyume.Model.Elemental;
@@ -20,6 +19,7 @@ namespace MarketService.Response
         public bool Exist { get; set; }
         public bool Legacy { get; set; }
         public int ItemId { get; set; }
+        public int IconId { get; set; }
         public int Grade { get; set; }
         public ItemType ItemType { get; set; }
         public ItemSubType ItemSubType { get; set; }
@@ -34,5 +34,9 @@ namespace MarketService.Response
         public decimal UnitPrice { get; set; }
         public int Crystal { get; set; }
         public int CrystalPerPrice { get; set; }
+
+        // CustomCraft
+        public bool ByCustomCraft { get; set; }
+        public bool HasRandomOnlyIcon { get; set; }
     }
 }
