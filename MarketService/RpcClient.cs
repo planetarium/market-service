@@ -5,6 +5,8 @@ using Bencodex.Types;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Lib9c.Model.Order;
+using Lib9c.Renderers;
+using Libplanet.Action;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Blocks;
@@ -13,6 +15,7 @@ using MarketService.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nekoyume;
+using Nekoyume.Action;
 using Nekoyume.Model.Item;
 using Nekoyume.Model.Market;
 using Nekoyume.Model.State;
@@ -28,6 +31,9 @@ public class RpcClient
 {
     private const int MaxDegreeOfParallelism = 8;
 
+    /// <summary>
+    /// <see cref="ItemSubType"/> for <see cref="SyncOrder"/>
+    /// </summary>
     private static readonly List<ItemSubType> ShardedSubTypes = new()
     {
         ItemSubType.Weapon,
@@ -61,9 +67,10 @@ public class RpcClient
     public Block Tip => _receiver.Tip;
     public Block PreviousTip => _receiver.PreviousTip;
 
+    private readonly ActionRenderer _actionRenderer;
 
     public RpcClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
-        IDbContextFactory<MarketContext> contextFactory)
+        IDbContextFactory<MarketContext> contextFactory, ActionRenderer actionRenderer)
     {
         _logger = logger;
         _address = new PrivateKey().Address;
@@ -82,6 +89,153 @@ public class RpcClient
         );
         _receiver = receiver;
         _contextFactory = contextFactory;
+        _actionRenderer = actionRenderer;
+        _actionRenderer.ActionRenderSubject.Subscribe(RenderAction);
+    }
+
+    /// <summary>
+    /// Insert or Update <see cref="ProductModel"/> by Market related actions.
+    /// </summary>
+    /// <param name="ev"></param>
+    public async void RenderAction(ActionEvaluation<ActionBase> ev)
+    {
+        if (ev.Exception is null)
+        {
+            var seed = ev.RandomSeed;
+            var random = new LocalRandom(seed);
+            var stateRootHash = ev.OutputState;
+            var hashBytes = stateRootHash.ToByteArray();
+            switch (ev.Action)
+            {
+                // Insert new product
+                case RegisterProduct registerProduct:
+                {
+                    var crystalEquipmentGrindingSheet = await GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
+                    var crystalMonsterCollectionMultiplierSheet =
+                        await GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
+                    var costumeStatSheet = await GetSheet<CostumeStatSheet>(hashBytes);
+                    var products = new List<Product>();
+                    var productIds = registerProduct.RegisterInfos.Select(_ => random.GenerateRandomGuid()).ToList();
+                    var states = await GetProductStates(productIds, hashBytes);
+                    foreach (var kv in states)
+                    {
+                        if (kv.Value is List deserialized)
+                        {
+                            products.Add(ProductFactory.DeserializeProduct(deserialized));
+                        }
+                    }
+
+                    await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                    break;
+                }
+                // Update product exist = false
+                case BuyProduct buyProduct:
+                {
+                    var orderIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var productInfo in buyProduct.ProductInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            orderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            productIds.Add(productInfo.ProductId);
+                        }
+                    }
+
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (orderIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, true);
+                    }
+
+                    if (productIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, false);
+                    }
+
+                    break;
+                }
+                case CancelProductRegistration cancelProductRegistration:
+                {
+                    var orderIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var productInfo in cancelProductRegistration.ProductInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            orderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            productIds.Add(productInfo.ProductId);
+                        }
+                    }
+
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (orderIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, true);
+                    }
+
+                    if (productIds.Any())
+                    {
+                        await UpdateProducts(productIds, marketContext, false);
+                    }
+
+                    break;
+                }
+                // Insert new product and Update product exist = false
+                case ReRegisterProduct reRegisterProduct:
+                {
+                    var deletedOrderIds = new List<Guid>();
+                    var deletedProductIds = new List<Guid>();
+                    var productIds = new List<Guid>();
+                    foreach (var (productInfo, _) in reRegisterProduct.ReRegisterInfos)
+                    {
+                        if (productInfo is ItemProductInfo {Legacy: true} _)
+                        {
+                            deletedOrderIds.Add(productInfo.ProductId);
+                        }
+                        else
+                        {
+                            deletedProductIds.Add(productInfo.ProductId);
+                        }
+                        productIds.Add(random.GenerateRandomGuid());
+                    }
+                    var crystalEquipmentGrindingSheet = await GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
+                    var crystalMonsterCollectionMultiplierSheet =
+                        await GetSheet<CrystalMonsterCollectionMultiplierSheet>(hashBytes);
+                    var costumeStatSheet = await GetSheet<CostumeStatSheet>(hashBytes);
+                    var products = new List<Product>();
+                    var states = await GetProductStates(productIds, hashBytes);
+                    foreach (var kv in states)
+                    {
+                        // check db all product ids avoid already synced products
+                        if (kv.Value is List deserialized)
+                        {
+                            products.Add(ProductFactory.DeserializeProduct(deserialized));
+                        }
+                    }
+
+                    await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
+                    var marketContext = await _contextFactory.CreateDbContextAsync();
+                    if (deletedOrderIds.Any())
+                    {
+                        await UpdateProducts(deletedOrderIds, marketContext, true);
+                    }
+
+                    if (deletedProductIds.Any())
+                    {
+                        await UpdateProducts(deletedProductIds, marketContext, false);
+                    }
+
+                    break;
+                }
+            }
+        }
     }
 
     public async Task StartAsync(CancellationToken stoppingToken)
@@ -135,6 +289,12 @@ public class RpcClient
         await _hub.LeaveAsync();
     }
 
+    /// <summary>
+    /// Get <see cref="List{T}"/> of <see cref="OrderDigest"/> for get registered agent addresses
+    /// </summary>
+    /// <param name="itemSubType"></param>
+    /// <param name="hashBytes"></param>
+    /// <returns></returns>
     public async Task<List<OrderDigest>> GetOrderDigests(ItemSubType itemSubType, byte[] hashBytes)
     {
         while (Tip is null) await Task.Delay(100);
@@ -145,7 +305,7 @@ public class RpcClient
             var addressList = GetShopAddress(itemSubType);
             var result =
                 await Service.GetBulkStateByStateRootHash(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), addressList);
-            var shopStates = GetShopStates(result);
+            var shopStates = DeserializeShopStates(result);
             foreach (var shopState in shopStates)
             foreach (var orderDigest in shopState.OrderDigestList)
             {
@@ -160,6 +320,13 @@ public class RpcClient
         return orderDigestList;
     }
 
+    /// <summary>
+    /// Insert and Update <see cref="ProductModel"/> from <see cref="Order"/>
+    /// </summary>
+    /// <param name="hashBytes">byte array from <see cref="Block.StateRootHash"/></param>
+    /// <param name="crystalEquipmentGrindingSheet"><see cref="CrystalEquipmentGrindingSheet"/></param>
+    /// <param name="crystalMonsterCollectionMultiplierSheet"><see cref="CrystalMonsterCollectionMultiplierSheet"/></param>
+    /// <param name="costumeStatSheet"><see cref="CostumeStatSheet"/></param>
     public async Task SyncOrder(byte[] hashBytes,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
@@ -316,6 +483,13 @@ public class RpcClient
         _logger.LogDebug("RestoreProducts: {Ts}", sw.Elapsed);
     }
 
+    /// <summary>
+    /// Set <see cref="ProductModel"/> exist = false
+    /// </summary>
+    /// <param name="deletedIds"></param>
+    /// <param name="marketContext"></param>
+    /// <param name="legacy"></param>
+    /// <param name="exist"></param>
     public async Task UpdateProducts(List<Guid> deletedIds, MarketContext marketContext, bool legacy,
         bool exist = false)
     {
@@ -331,6 +505,13 @@ public class RpcClient
         }
     }
 
+    /// <summary>
+    /// Create <see cref="ProductModel"/> from <see cref="Order"/>
+    /// </summary>
+    /// <param name="hashBytes">byte array from <see cref="Block.StateRootHash"/></param>
+    /// <param name="crystalEquipmentGrindingSheet"><see cref="CrystalEquipmentGrindingSheet"/></param>
+    /// <param name="crystalMonsterCollectionMultiplierSheet"><see cref="CrystalMonsterCollectionMultiplierSheet"/></param>
+    /// <param name="costumeStatSheet"><see cref="CostumeStatSheet"/></param>
     public async Task InsertOrders(byte[] hashBytes, List<Guid> orderIds, List<Guid> tradableIds,
         MarketContext marketContext, List<OrderDigest> orderDigestList,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
@@ -377,6 +558,13 @@ public class RpcClient
         }
     }
 
+    /// <summary>
+    /// Insert and Update ProductModel from <see cref="Product"/>
+    /// </summary>
+    /// <param name="hashBytes">byte array from <see cref="Block.StateRootHash"/></param>
+    /// <param name="crystalEquipmentGrindingSheet"><see cref="CrystalEquipmentGrindingSheet"/></param>
+    /// <param name="crystalMonsterCollectionMultiplierSheet"><see cref="CrystalMonsterCollectionMultiplierSheet"/></param>
+    /// <param name="costumeStatSheet"><see cref="CostumeStatSheet"/></param>
     public async Task SyncProduct(byte[] hashBytes, CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet,
         CostumeStatSheet costumeStatSheet)
@@ -416,7 +604,7 @@ public class RpcClient
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Get ChunkedStates: {Elapsed}", sw.Elapsed);
             sw.Restart();
-            var productLists = GetProductsState(productListResult);
+            var productLists = DeserializeProductsState(productListResult);
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Get ProductsState: {Elapsed}", sw.Elapsed);
             sw.Restart();
@@ -475,6 +663,13 @@ public class RpcClient
         return result;
     }
 
+    /// <summary>
+    /// Insert <see cref="ProductModel"/> from <see cref="Product"/>
+    /// </summary>
+    /// <param name="products">List of <see cref="Product"/></param>
+    /// <param name="crystalEquipmentGrindingSheet"><see cref="CrystalEquipmentGrindingSheet"/></param>
+    /// <param name="crystalMonsterCollectionMultiplierSheet"><see cref="CrystalMonsterCollectionMultiplierSheet"/></param>
+    /// <param name="costumeStatSheet"><see cref="CostumeStatSheet"/></param>
     public async Task InsertProducts(List<Product> products, CostumeStatSheet costumeStatSheet,
         CrystalEquipmentGrindingSheet crystalEquipmentGrindingSheet,
         CrystalMonsterCollectionMultiplierSheet crystalMonsterCollectionMultiplierSheet)
@@ -564,31 +759,7 @@ public class RpcClient
         return _receiver.Tip.StateRootHash.ToByteArray();
     }
 
-    public async Task<Dictionary<Guid, IValue>> GetProductStates(IEnumerable<Address> avatarAddressList,
-        byte[] hashBytes)
-    {
-        var productListAddresses = avatarAddressList.Select(a => ProductsState.DeriveAddress(a).ToByteArray()).ToList();
-        var productListResult =
-            await GetChunkedStates(hashBytes, ReservedAddresses.LegacyAccount.ToByteArray(), productListAddresses);
-        var productLists = GetProductsState(productListResult);
-        var productIdList = productLists.SelectMany(p => p.ProductIds).ToList();
-        var productIds = new Dictionary<Address, Guid>();
-        foreach (var productId in productIdList) productIds[Product.DeriveAddress(productId)] = productId;
-        var productResult = await GetChunkedStates(
-            hashBytes,
-            ReservedAddresses.LegacyAccount.ToByteArray(),
-            productIds.Keys.Select(a => a.ToByteArray()).ToList());
-        var result = new Dictionary<Guid, IValue>();
-        foreach (var kv in productResult)
-        {
-            var productId = productIds[kv.Key];
-            result[productId] = kv.Value;
-        }
-
-        return result;
-    }
-
-    public List<ProductsState> GetProductsState(Dictionary<Address, IValue> queryResult)
+    public List<ProductsState> DeserializeProductsState(Dictionary<Address, IValue> queryResult)
     {
         var result = new List<ProductsState>();
         foreach (var kv in queryResult)
@@ -610,7 +781,12 @@ public class RpcClient
         return new[] {ShardedShopStateV2.DeriveAddress(itemSubType, "").ToByteArray()};
     }
 
-    public IEnumerable<ShardedShopStateV2> GetShopStates(Dictionary<byte[], byte[]> queryResult)
+    /// <summary>
+    /// Get <see cref="IEnumerable{T}"/> of <see cref="ShardedShopStateV2"/> for listing <see cref="OrderDigest"/>
+    /// </summary>
+    /// <param name="queryResult"></param>
+    /// <returns></returns>
+    public IEnumerable<ShardedShopStateV2> DeserializeShopStates(Dictionary<byte[], byte[]> queryResult)
     {
         var result = new List<ShardedShopStateV2>();
         foreach (var kv in queryResult)
@@ -622,6 +798,14 @@ public class RpcClient
         return result;
     }
 
+    /// <summary>
+    /// Get <see cref="List{T}"/> of <see cref="Order"/> for <see cref="ItemProductModel"/>.
+    /// </summary>
+    /// <seealso cref="StatModel"/>
+    /// <seealso cref="SkillModel"/>
+    /// <param name="orderIds"></param>
+    /// <param name="hashBytes"></param>
+    /// <returns></returns>
     public async Task<List<Order>> GetOrders(IEnumerable<Guid> orderIds, byte[] hashBytes)
     {
         var orderAddressList = orderIds.Select(i => Order.DeriveAddress(i).ToByteArray()).ToList();
@@ -644,6 +828,14 @@ public class RpcClient
         return orderBag.ToList();
     }
 
+    /// <summary>
+    /// Get <see cref="List{T}"/> of <see cref="ITradableItem"/> for <see cref="ItemProductModel"/>.
+    /// </summary>
+    /// <seealso cref="StatModel"/>
+    /// <seealso cref="SkillModel"/>
+    /// <param name="tradableIds"></param>
+    /// <param name="hashBytes"></param>
+    /// <returns></returns>
     public async Task<List<ITradableItem>> GetItems(IEnumerable<Guid> tradableIds, byte[] hashBytes)
     {
         var itemAddressList = tradableIds.Select(i => Addresses.GetItemAddress(i).ToByteArray()).ToList();
@@ -681,6 +873,13 @@ public class RpcClient
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
+    /// <summary>
+    /// GetBulkState with chunking size 1000
+    /// </summary>
+    /// <param name="hashBytes"></param>
+    /// <param name="accountBytes"></param>
+    /// <param name="addressList"></param>
+    /// <returns></returns>
     public async Task<Dictionary<Address, IValue>> GetChunkedStates(byte[] hashBytes, byte[] accountBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, IValue>();
@@ -698,6 +897,12 @@ public class RpcClient
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
+    /// <summary>
+    /// Get <see cref="Dictionary{Address,AgentState}"/> for listing avatar addresses.
+    /// </summary>
+    /// <param name="hashBytes"></param>
+    /// <param name="addressList"></param>
+    /// <returns></returns>
     public async Task<Dictionary<Address, AgentState>> GetAgentStates(byte[] hashBytes, List<byte[]> addressList)
     {
         var result = new ConcurrentDictionary<Address, AgentState>();
@@ -721,6 +926,11 @@ public class RpcClient
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
 
+    /// <summary>
+    /// Get <see cref="MarketState"/> for listing avatar addresses.
+    /// </summary>
+    /// <param name="hashBytes"></param>
+    /// <returns><see cref="Task{MarketState}"/></returns>
     public async Task<MarketState> GetMarket(byte[] hashBytes)
     {
         var marketResult = await Service.GetStateByStateRootHash(
@@ -733,6 +943,12 @@ public class RpcClient
         return new MarketState();
     }
 
+    /// <summary>
+    /// Get <see cref="List{T}"/> of <see cref="OrderDigest"/> from avatar addresses.
+    /// </summary>
+    /// <param name="avatarAddresses"></param>
+    /// <param name="hashBytes"></param>
+    /// <returns><see cref="List{T}"/> of <see cref="OrderDigest"/></returns>
     public async Task<List<OrderDigest>> GetOrderDigests(List<Address> avatarAddresses, byte[] hashBytes)
     {
         var digestListStateAddresses =
@@ -757,5 +973,15 @@ public class RpcClient
             }
         });
         return orderDigests.ToList();
+    }
+
+    internal class LocalRandom : System.Random, IRandom
+    {
+        public int Seed { get; }
+
+        public LocalRandom(int seed) : base(seed)
+        {
+            Seed = seed;
+        }
     }
 }
