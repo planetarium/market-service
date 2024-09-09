@@ -414,9 +414,7 @@ public class RpcClientTest
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
-        var updatedProductModel = Assert.Single(nextContext.Products);
-        Assert.Equal(productModel.ProductId, updatedProductModel.ProductId);
-        Assert.False(updatedProductModel.Exist);
+        Assert.Empty(nextContext.Products);
     }
 
     [Theory]
@@ -493,11 +491,8 @@ public class RpcClientTest
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
-        Assert.Equal(2, nextContext.Products.Count());
-        var oldProduct = nextContext.Products.Single(p => p.ProductId == order.OrderId);
-        Assert.Equal(1, oldProduct.Price);
-        Assert.False(oldProduct.Exist);
-        var newProduct = nextContext.Products.Single(p => p.ProductId == order2.OrderId);
+        Assert.Empty(nextContext.Products.Where(p => p.ProductId == order.OrderId));
+        var newProduct = Assert.Single(nextContext.Products);
         Assert.Equal(2, newProduct.Price);
         Assert.True(newProduct.Exist);
     }
@@ -575,8 +570,9 @@ public class RpcClientTest
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         var nextProducts = nextContext.Products.AsNoTracking().ToList();
+        Assert.Equal(90, nextProducts.Count);
         Assert.Equal(90, nextProducts.Count(p => p.Exist));
-        Assert.Equal(10, nextProducts.Count(p => !p.Exist));
+        Assert.Equal(0, nextProducts.Count(p => !p.Exist));
     }
 
     [Fact]

@@ -474,13 +474,7 @@ public class RpcClient
         _logger.LogDebug("InsertOrders: {Ts}", sw.Elapsed);
         sw.Restart();
 
-        await UpdateProducts(deletedIds.ToList(), marketContext, true);
-        sw.Stop();
-        _logger.LogDebug("DeleteProducts: {Ts}", sw.Elapsed);
-        sw.Restart();
-        await UpdateProducts(restoreIds.ToList(), marketContext, true, true);
-        sw.Stop();
-        _logger.LogDebug("RestoreProducts: {Ts}", sw.Elapsed);
+        await DeleteProducts(deletedIds.ToList(), marketContext);
     }
 
     /// <summary>
@@ -570,7 +564,6 @@ public class RpcClient
         CostumeStatSheet costumeStatSheet)
     {
         while (Tip is null) await Task.Delay(100);
-
         try
         {
             var sw = new Stopwatch();
@@ -636,7 +629,7 @@ public class RpcClient
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
             sw.Restart();
-            await UpdateProducts(deletedIds, marketContext, false);
+            await DeleteProducts(deletedIds, marketContext);
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
         }
@@ -975,7 +968,16 @@ public class RpcClient
         return orderDigests.ToList();
     }
 
-    internal class LocalRandom : System.Random, IRandom
+    public async Task DeleteProducts(List<Guid> deletedIds, MarketContext marketContext)
+    {
+        // 등록취소, 판매된 경우 해당 row를 삭제함
+        if (deletedIds.Any())
+        {
+            await marketContext.Products.Where(p => deletedIds.Contains(p.ProductId)).ExecuteDeleteAsync();
+        }
+    }
+
+    internal class LocalRandom : Random, IRandom
     {
         public int Seed { get; }
 
