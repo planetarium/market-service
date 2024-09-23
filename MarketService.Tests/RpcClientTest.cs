@@ -14,8 +14,6 @@ using Libplanet.Crypto;
 using Libplanet.Types.Assets;
 using Libplanet.Mocks;
 using Libplanet.Types.Blocks;
-using Libplanet.Types.Evidence;
-using Libplanet.Types.Tx;
 using MagicOnion;
 using MagicOnion.Server;
 using MarketService.Models;
@@ -371,7 +369,7 @@ public class RpcClientTest
             tradableItem = ItemFactory.CreateCostume(row, order.TradableId);
         }
 
-        item = (ItemBase) tradableItem;
+        item = (ItemBase)tradableItem;
         var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
 
         var orderDigest = new OrderDigest(
@@ -433,7 +431,7 @@ public class RpcClientTest
             itemSubType, 1);
         _testService.SetOrder(order);
         var item = ItemFactory.CreateItemUsable(_row, order.TradableId, 0L);
-        ((Equipment) item).optionCountFromCombination = 1;
+        ((Equipment)item).optionCountFromCombination = 1;
         var blockIndex = ActionObsoleteConfig.V100080ObsoleteIndex + 1L;
         var orderDigest = new OrderDigest(
             agentAddress,
@@ -497,8 +495,11 @@ public class RpcClientTest
         Assert.True(newProduct.Exist);
     }
 
-    [Fact]
-    public async Task SyncProduct()
+    [Theory]
+    [InlineData(10151000, false, false)]
+    [InlineData(10151000, true, false)]
+    [InlineData(10120000, true, true)]
+    public async Task SyncProduct(int iconId, bool byCustomCraft, bool hasRandomOnlyIcon)
     {
         var ct = new CancellationToken();
 #pragma warning disable EF1001
@@ -518,7 +519,11 @@ public class RpcClientTest
             {
                 var tradableId = Guid.NewGuid();
                 var productId = Guid.NewGuid();
-                var item = ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
+                var item = (Equipment)ItemFactory.CreateItemUsable(_row, tradableId, 1L, i + 1);
+                item.IconId = iconId;
+                item.ByCustomCraft = byCustomCraft;
+                item.HasRandomOnlyIcon = hasRandomOnlyIcon;
+
                 var itemProduct = new ItemProduct
                 {
                     ProductId = productId,
@@ -554,6 +559,10 @@ public class RpcClientTest
                 Assert.True(itemProduct.CombatPoint > 0);
                 Assert.True(itemProduct.Level > 0);
                 Assert.Equal(1, itemProduct.Grade);
+                // If item does not have IconId, IconId is same as ItemId
+                Assert.Equal(iconId, itemProduct.IconId);
+                Assert.Equal(byCustomCraft, itemProduct.ByCustomCraft);
+                Assert.Equal(hasRandomOnlyIcon, itemProduct.HasRandomOnlyIcon);
             }
         }
 
@@ -878,6 +887,7 @@ public class RpcClientTest
                 {
                     shopState.Add(orderDigest, 0L);
                 }
+
                 _testService.SetState(shopAddress, shopState.Serialize());
             }
         }

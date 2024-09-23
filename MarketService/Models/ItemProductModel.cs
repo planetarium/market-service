@@ -15,6 +15,7 @@ namespace MarketService.Models;
 public class ItemProductModel : ProductModel, IItemProductModel
 {
     public int ItemId { get; set; }
+    public int IconId { get; set; }
     public int Grade { get; set; }
     public ItemType ItemType { get; set; }
     public ItemSubType ItemSubType { get; set; }
@@ -32,6 +33,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
     [NotMapped]
     public ICollection<StatResponseModel> StatModels => Stats.Select(s => s.ToResponse()).ToList();
 
+    public bool ByCustomCraft { get; set; }
+    public bool HasRandomOnlyIcon { get; set; }
+
     public int OptionCountFromCombination { get; set; }
 
     public ItemProductResponseModel ToResponse()
@@ -47,6 +51,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
             Exist = Exist,
             Legacy = Legacy,
             ItemId = ItemId,
+            IconId = IconId,
             Grade = Grade,
             ItemType = ItemType,
             ItemSubType = ItemSubType,
@@ -61,6 +66,8 @@ public class ItemProductModel : ProductModel, IItemProductModel
             CrystalPerPrice = CrystalPerPrice,
             OptionCountFromCombination = OptionCountFromCombination,
             UnitPrice = UnitPrice,
+            ByCustomCraft = ByCustomCraft,
+            HasRandomOnlyIcon = HasRandomOnlyIcon,
         };
     }
 
@@ -100,6 +107,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
                 {
                     SetId = equipment.SetId;
                     Level = equipment.level;
+                    IconId = equipment.IconId;
+                    ByCustomCraft = equipment.ByCustomCraft;
+                    HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
                     OptionCountFromCombination = equipment.optionCountFromCombination;
                     var skillModels = new List<SkillModel>();
                     skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
