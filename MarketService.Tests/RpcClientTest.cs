@@ -8,6 +8,7 @@ using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
 using Lib9c.Model.Order;
+using Lib9c.Renderers;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
 using Libplanet.Types.Assets;
@@ -326,11 +327,16 @@ public class RpcClientTest
             new DbContextOptionsBuilder<MarketContext>().UseNpgsql(_connectionString)
                 .UseLowerCaseNamingConvention().Options, new DbContextFactorySource<MarketContext>());
 #pragma warning restore EF1001
-        var rpcConfigOptions = new RpcConfigOptions { Host = "localhost", Port = 5000 };
-        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()));
+        var rpcConfigOptions = new RpcConfigOptions {Host = "localhost", Port = 5000};
+        var workerOptions = new WorkerOptions
+        {
+            SyncProduct = false,
+            SyncShop = false,
+        };
+        var receiver = new Receiver(new Logger<Receiver>(new LoggerFactory()), new ActionRenderer(), new OptionsWrapper<WorkerOptions>(workerOptions));
         using var logger = _output.BuildLoggerFor<RpcClient>();
         _client = new TestClient(new OptionsWrapper<RpcConfigOptions>(rpcConfigOptions),
-            logger, receiver, _contextFactory, _testService);
+            logger, receiver, _contextFactory, _testService, new ActionRenderer());
     }
 
     [Theory]
@@ -406,9 +412,7 @@ public class RpcClientTest
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
-        var updatedProductModel = Assert.Single(nextContext.Products);
-        Assert.Equal(productModel.ProductId, updatedProductModel.ProductId);
-        Assert.False(updatedProductModel.Exist);
+        Assert.Empty(nextContext.Products);
     }
 
     [Theory]
@@ -485,11 +489,8 @@ public class RpcClientTest
 #pragma warning disable EF1001
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
-        Assert.Equal(2, nextContext.Products.Count());
-        var oldProduct = nextContext.Products.Single(p => p.ProductId == order.OrderId);
-        Assert.Equal(1, oldProduct.Price);
-        Assert.False(oldProduct.Exist);
-        var newProduct = nextContext.Products.Single(p => p.ProductId == order2.OrderId);
+        Assert.Empty(nextContext.Products.Where(p => p.ProductId == order.OrderId));
+        var newProduct = Assert.Single(nextContext.Products);
         Assert.Equal(2, newProduct.Price);
         Assert.True(newProduct.Exist);
     }
@@ -578,8 +579,9 @@ public class RpcClientTest
         var nextContext = await _contextFactory.CreateDbContextAsync(ct);
 #pragma warning restore EF1001
         var nextProducts = nextContext.Products.AsNoTracking().ToList();
+        Assert.Equal(90, nextProducts.Count);
         Assert.Equal(90, nextProducts.Count(p => p.Exist));
-        Assert.Equal(10, nextProducts.Count(p => !p.Exist));
+        Assert.Equal(0, nextProducts.Count(p => !p.Exist));
     }
 
     [Fact]
@@ -677,8 +679,8 @@ public class RpcClientTest
     private class TestClient : RpcClient
     {
         public TestClient(IOptions<RpcConfigOptions> options, ILogger<RpcClient> logger, Receiver receiver,
-            IDbContextFactory<MarketContext> contextFactory, TestService service) : base(options, logger, receiver,
-            contextFactory)
+            IDbContextFactory<MarketContext> contextFactory, TestService service, ActionRenderer renderer) : base(options, logger, receiver,
+            contextFactory, renderer)
         {
             Service = service;
             var path = "../../../genesis";

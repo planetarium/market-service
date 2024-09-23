@@ -1,4 +1,8 @@
 using System.Text.Json.Serialization;
+using Lib9c.Formatters;
+using Lib9c.Renderers;
+using MessagePack;
+using MessagePack.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -64,31 +68,43 @@ public class Startup
                 .UseLowerCaseNamingConvention()
                 .ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))
         );
-        services.AddSingleton<RpcClient>();
-        services.AddSingleton<Receiver>();
-        services.AddHostedService<RpcService>();
-        WorkerOptions workerOptions = new();
-        Configuration.GetSection(WorkerOptions.WorkerConfig)
-            .Bind(workerOptions);
-        if (workerOptions.SyncShop)
-        {
-            services.AddHostedService<ShopWorker>();
-        }
-
-        if (workerOptions.SyncProduct)
-        {
-            services.AddHostedService<ProductWorker>();
-        }
         services.AddMvc()
             .AddJsonOptions(
                 options => { options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles; }
             );
-        services
-            .AddHostedService<RpcNodeCheckService>()
-            .AddSingleton<RpcNodeHealthCheck>();
-        services.AddHealthChecks()
-            .AddDbContextCheck<MarketContext>()
-            .AddCheck<RpcNodeHealthCheck>(nameof(RpcNodeHealthCheck));
+        var healthChecksBuilder = services.AddHealthChecks()
+            .AddDbContextCheck<MarketContext>();
+
+        WorkerOptions workerOptions = new();
+        Configuration.GetSection(WorkerOptions.WorkerConfig)
+            .Bind(workerOptions);
+        var writeMode = workerOptions.SyncProduct || workerOptions.SyncShop;
+        if (writeMode)
+        {
+            services
+                .AddHostedService<RpcNodeCheckService>()
+                .AddSingleton<RpcNodeHealthCheck>();
+            services.AddSingleton<RpcClient>();
+            services.AddSingleton<Receiver>();
+            services.AddHostedService<RpcService>();
+            services.AddSingleton<ActionRenderer>();
+            var resolver = MessagePack.Resolvers.CompositeResolver.Create(
+                NineChroniclesResolver.Instance,
+                StandardResolver.Instance
+            );
+            var options = MessagePackSerializerOptions.Standard.WithResolver(resolver);
+            MessagePackSerializer.DefaultOptions = options;
+            if (workerOptions.SyncShop)
+            {
+                services.AddHostedService<ShopWorker>();
+            }
+
+            if (workerOptions.SyncProduct)
+            {
+                services.AddHostedService<ProductWorker>();
+            }
+            healthChecksBuilder.AddCheck<RpcNodeHealthCheck>(nameof(RpcNodeHealthCheck));
+        }
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
