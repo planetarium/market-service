@@ -128,81 +128,39 @@ public class RpcClient
                     await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
                     break;
                 }
-                // Update product exist = false
+                // delete product
                 case BuyProduct buyProduct:
                 {
-                    var orderIds = new List<Guid>();
-                    var productIds = new List<Guid>();
+                    var deletedIds = new List<Guid>();
                     foreach (var productInfo in buyProduct.ProductInfos)
                     {
-                        if (productInfo is ItemProductInfo {Legacy: true} _)
-                        {
-                            orderIds.Add(productInfo.ProductId);
-                        }
-                        else
-                        {
-                            productIds.Add(productInfo.ProductId);
-                        }
+                        deletedIds.Add(productInfo.ProductId);
                     }
 
                     var marketContext = await _contextFactory.CreateDbContextAsync();
-                    if (orderIds.Any())
-                    {
-                        await UpdateProducts(productIds, marketContext, true);
-                    }
-
-                    if (productIds.Any())
-                    {
-                        await UpdateProducts(productIds, marketContext, false);
-                    }
-
+                    await DeleteProducts(deletedIds, marketContext);
                     break;
                 }
                 case CancelProductRegistration cancelProductRegistration:
                 {
-                    var orderIds = new List<Guid>();
-                    var productIds = new List<Guid>();
+                    var deletedIds = new List<Guid>();
                     foreach (var productInfo in cancelProductRegistration.ProductInfos)
                     {
-                        if (productInfo is ItemProductInfo {Legacy: true} _)
-                        {
-                            orderIds.Add(productInfo.ProductId);
-                        }
-                        else
-                        {
-                            productIds.Add(productInfo.ProductId);
-                        }
+                        deletedIds.Add(productInfo.ProductId);
                     }
 
                     var marketContext = await _contextFactory.CreateDbContextAsync();
-                    if (orderIds.Any())
-                    {
-                        await UpdateProducts(productIds, marketContext, true);
-                    }
-
-                    if (productIds.Any())
-                    {
-                        await UpdateProducts(productIds, marketContext, false);
-                    }
-
+                    await DeleteProducts(deletedIds, marketContext);
                     break;
                 }
-                // Insert new product and Update product exist = false
+                // Insert new product and delete product
                 case ReRegisterProduct reRegisterProduct:
                 {
-                    var deletedOrderIds = new List<Guid>();
-                    var deletedProductIds = new List<Guid>();
                     var productIds = new List<Guid>();
+                    var deletedIds = new List<Guid>();
                     foreach (var (productInfo, _) in reRegisterProduct.ReRegisterInfos)
                     {
-                        if (productInfo is ItemProductInfo {Legacy: true} _)
-                        {
-                            deletedOrderIds.Add(productInfo.ProductId);
-                        }
-                        else
-                        {
-                            deletedProductIds.Add(productInfo.ProductId);
-                        }
+                        deletedIds.Add(productInfo.ProductId);
                         productIds.Add(random.GenerateRandomGuid());
                     }
                     var crystalEquipmentGrindingSheet = await GetSheet<CrystalEquipmentGrindingSheet>(hashBytes);
@@ -222,16 +180,7 @@ public class RpcClient
 
                     await InsertProducts(products, costumeStatSheet, crystalEquipmentGrindingSheet, crystalMonsterCollectionMultiplierSheet);
                     var marketContext = await _contextFactory.CreateDbContextAsync();
-                    if (deletedOrderIds.Any())
-                    {
-                        await UpdateProducts(deletedOrderIds, marketContext, true);
-                    }
-
-                    if (deletedProductIds.Any())
-                    {
-                        await UpdateProducts(deletedProductIds, marketContext, false);
-                    }
-
+                    await DeleteProducts(deletedIds, marketContext);
                     break;
                 }
             }
@@ -474,13 +423,7 @@ public class RpcClient
         _logger.LogDebug("InsertOrders: {Ts}", sw.Elapsed);
         sw.Restart();
 
-        await UpdateProducts(deletedIds.ToList(), marketContext, true);
-        sw.Stop();
-        _logger.LogDebug("DeleteProducts: {Ts}", sw.Elapsed);
-        sw.Restart();
-        await UpdateProducts(restoreIds.ToList(), marketContext, true, true);
-        sw.Stop();
-        _logger.LogDebug("RestoreProducts: {Ts}", sw.Elapsed);
+        await DeleteProducts(deletedIds.ToList(), marketContext);
     }
 
     /// <summary>
@@ -570,7 +513,6 @@ public class RpcClient
         CostumeStatSheet costumeStatSheet)
     {
         while (Tip is null) await Task.Delay(100);
-
         try
         {
             var sw = new Stopwatch();
@@ -636,7 +578,7 @@ public class RpcClient
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Insert Products: {Elapsed}", sw.Elapsed);
             sw.Restart();
-            await UpdateProducts(deletedIds, marketContext, false);
+            await DeleteProducts(deletedIds, marketContext);
             sw.Stop();
             _logger.LogDebug("[ProductWorker]Update Products: {Elapsed}", sw.Elapsed);
         }
@@ -975,7 +917,16 @@ public class RpcClient
         return orderDigests.ToList();
     }
 
-    internal class LocalRandom : System.Random, IRandom
+    public async Task DeleteProducts(List<Guid> deletedIds, MarketContext marketContext)
+    {
+        // 등록취소, 판매된 경우 해당 row를 삭제함
+        if (deletedIds.Any())
+        {
+            await marketContext.Products.Where(p => deletedIds.Contains(p.ProductId)).ExecuteDeleteAsync();
+        }
+    }
+
+    internal class LocalRandom : Random, IRandom
     {
         public int Seed { get; }
 

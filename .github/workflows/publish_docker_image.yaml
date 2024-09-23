@@ -6,7 +6,7 @@ on:
       - rc-*
       - hotfix/*
       - release/*
-      - feature/issue-117
+      - feature/issue-123
 env:
   DOCKER_REPO: planetariumhq/market-service
 jobs:
