@@ -47,7 +47,7 @@ public class MarketController : ControllerBase
     }
 
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
-        string sort, StatType statType, int[] iconIds)
+        string sort, StatType statType, int[] iconIds, bool isCustom = false)
     {
         var ids = string.Join("_", iconIds.OrderBy(i => i));
         var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}";
@@ -66,6 +66,11 @@ public class MarketController : ControllerBase
             if (iconIds.Any())
             {
                 query = query.Where(p => iconIds.Contains(p.IconId));
+            }
+
+            if (isCustom)
+            {
+                query = query.Where(p => p.ByCustomCraft);
             }
 
             query = query.AsSingleQuery();
