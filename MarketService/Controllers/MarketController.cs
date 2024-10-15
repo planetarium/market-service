@@ -47,9 +47,9 @@ public class MarketController : ControllerBase
     }
 
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
-        string sort, StatType statType, int[] itemIds)
+        string sort, StatType statType, int[] iconIds)
     {
-        var ids = string.Join("_", itemIds.OrderBy(i => i));
+        var ids = string.Join("_", iconIds.OrderBy(i => i));
         var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
@@ -63,9 +63,9 @@ public class MarketController : ControllerBase
                 query = query.Where(p => p.Stats.Any(s => s.Type == statType));
             }
 
-            if (itemIds.Any())
+            if (iconIds.Any())
             {
-                query = query.Where(p => itemIds.Contains(p.ItemId));
+                query = query.Where(p => iconIds.Contains(p.IconId));
             }
 
             query = query.AsSingleQuery();
