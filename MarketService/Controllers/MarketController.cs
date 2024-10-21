@@ -28,14 +28,14 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/items/{type}")]
-    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat, [FromQuery] int[] itemIds)
+    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat, [FromQuery] int[] iconIds, bool isCustom)
     {
         var itemSubType = (ItemSubType) type;
         var queryOffset = offset ?? 0;
         var queryLimit = limit ?? 100;
         var sort = string.IsNullOrEmpty(order) ? "cp_desc" : order;
         var statType = string.IsNullOrEmpty(stat) ? StatType.NONE : Enum.Parse<StatType>(stat, true);
-        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType, itemIds);
+        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType, iconIds, isCustom);
         var totalCount = queryResult.Count;
         return new MarketProductResponse(
             totalCount,
@@ -47,10 +47,10 @@ public class MarketController : ControllerBase
     }
 
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
-        string sort, StatType statType, int[] iconIds, bool isCustom = false)
+        string sort, StatType statType, int[] iconIds, bool isCustom)
     {
         var ids = string.Join("_", iconIds.OrderBy(i => i));
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}";
+        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}_{isCustom}";
         if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
         {
             var query = _dbContext.ItemProducts
