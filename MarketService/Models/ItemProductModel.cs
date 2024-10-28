@@ -94,7 +94,7 @@ public class ItemProductModel : ProductModel, IItemProductModel
                     Additional = true,
                     Type = s.statType,
                     Value = s.additionalValue
-                });
+                }).ToList();
                 var baseStats = map.GetBaseStats(true).Select(s => new StatModel
                 {
                     Additional = false,
@@ -110,7 +110,9 @@ public class ItemProductModel : ProductModel, IItemProductModel
                     IconId = equipment.IconId;
                     ByCustomCraft = equipment.ByCustomCraft;
                     HasRandomOnlyIcon = equipment.HasRandomOnlyIcon;
-                    OptionCountFromCombination = equipment.optionCountFromCombination;
+                    OptionCountFromCombination = equipment.optionCountFromCombination > 0
+                        ? equipment.optionCountFromCombination
+                        : additionalStats.Count() + equipment.Skills.Count;
                     var skillModels = new List<SkillModel>();
                     skillModels.AddRange(equipment.Skills.Select(s => new SkillModel
                     {
