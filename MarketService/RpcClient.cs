@@ -84,6 +84,8 @@ public class RpcClient
                 HttpHandler = new SocketsHttpHandler
                 {
                     EnableMultipleHttp2Connections = true,
+                    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
                 }
             }
         );
