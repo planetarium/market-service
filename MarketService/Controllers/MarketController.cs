@@ -28,7 +28,8 @@ public class MarketController : ControllerBase
     }
 
     [HttpGet("products/items/{type}")]
-    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order, string? stat, [FromQuery] int[] iconIds, bool isCustom)
+    public async Task<MarketProductResponse> GetItemProducts(int type, int? limit, int? offset, string? order,
+        string? stat, [FromQuery] int[] itemIds, [FromQuery] int[] iconIds, bool isCustom)
     {
         var itemSubType = (ItemSubType) type;
         var queryOffset = offset ?? 0;
