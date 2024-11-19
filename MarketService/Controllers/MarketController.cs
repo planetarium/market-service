@@ -47,6 +47,18 @@ public class MarketController : ControllerBase
                 .Take(queryLimit));
     }
 
+    /// <summary>
+    /// Query and get filtered item list from market service.
+    /// </summary>
+    /// <param name="itemSubType">Item subtype to query.</param>
+    /// <param name="queryLimit">Result count limit.</param>
+    /// <param name="queryOffset">Offset to find from.</param>
+    /// <param name="sort">Type of sorting result.</param>
+    /// <param name="statType">Target stat type to query.</param>
+    /// <param name="itemIds">Item IDs to filter. This will be ignored when `iconIds` comes in.</param>
+    /// <param name="iconIds">Icon IDs to filter. This only works for equipment. This will be solely used when both IconIds and ItemIds are incoming.</param>
+    /// <param name="isCustom">Flag to find from custom craft.</param>
+    /// <returns></returns>
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
         string sort, StatType statType, int[] itemIds, int[] iconIds, bool isCustom)
     {
@@ -69,6 +81,7 @@ public class MarketController : ControllerBase
             query = query.Where(p => p.Stats.Any(s => s.Type == statType));
         }
 
+        // Use iconIds when present. Ignore itemIds in this case.
         if (iconIds.Any())
         {
             query = query.Where(p => iconIds.Contains(p.IconId));
