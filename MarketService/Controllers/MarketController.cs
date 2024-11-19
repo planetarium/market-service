@@ -36,7 +36,7 @@ public class MarketController : ControllerBase
         var queryLimit = limit ?? 100;
         var sort = string.IsNullOrEmpty(order) ? "cp_desc" : order;
         var statType = string.IsNullOrEmpty(stat) ? StatType.NONE : Enum.Parse<StatType>(stat, true);
-        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType, iconIds, isCustom);
+        var queryResult = await Get(itemSubType, queryLimit, queryOffset, sort, statType, itemIds, iconIds, isCustom);
         var totalCount = queryResult.Count;
         return new MarketProductResponse(
             totalCount,
@@ -48,58 +48,66 @@ public class MarketController : ControllerBase
     }
 
     private async Task<List<ItemProductModel>> Get(ItemSubType itemSubType, int queryLimit, int queryOffset,
-        string sort, StatType statType, int[] iconIds, bool isCustom)
+        string sort, StatType statType, int[] itemIds, int[] iconIds, bool isCustom)
     {
-        var ids = string.Join("_", iconIds.OrderBy(i => i));
-        var cacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{ids}_{isCustom}";
-        if (!_memoryCache.TryGetValue(cacheKey, out List<ItemProductModel>? queryResult))
+        var iconIdKey = string.Join("_", iconIds.OrderBy(i => i));
+        var iconCacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{iconIdKey}_{isCustom}";
+        var itemIdKey = string.Join("_", itemIds.OrderBy(i => i));
+        var itemCacheKey = $"{itemSubType}_{queryLimit}_{queryOffset}_{sort}_{statType}_{itemIdKey}";
+
+        if (_memoryCache.TryGetValue(iconIds.Any() ? iconCacheKey : itemCacheKey,
+                out List<ItemProductModel>? queryResult))
+            return queryResult!;
+
+        var query = _dbContext.ItemProducts
+            .AsNoTracking()
+            .Include(p => p.Skills)
+            .Include(p => p.Stats)
+            .Where(p => p.ItemSubType == itemSubType && p.Exist);
+        if (statType != StatType.NONE)
         {
-            var query = _dbContext.ItemProducts
-                .AsNoTracking()
-                .Include(p => p.Skills)
-                .Include(p => p.Stats)
-                .Where(p => p.ItemSubType == itemSubType && p.Exist);
-            if (statType != StatType.NONE)
-            {
-                query = query.Where(p => p.Stats.Any(s => s.Type == statType));
-            }
-
-            if (iconIds.Any())
-            {
-                query = query.Where(p => iconIds.Contains(p.IconId));
-            }
-
-            if (isCustom)
-            {
-                query = query.Where(p => p.ByCustomCraft);
-            }
-
-            query = query.AsSingleQuery();
-            query = sort switch
-            {
-                "cp_desc" => query.OrderByDescending(p => p.CombatPoint),
-                "cp" => query.OrderBy(p => p.CombatPoint),
-                "price_desc" => query.OrderByDescending(p => p.Price),
-                "price" => query.OrderBy(p => p.Price),
-                "grade_desc" => query.OrderByDescending(p => p.Grade),
-                "grade" => query.OrderBy(p => p.Grade),
-                "crystal_desc" => query.OrderByDescending(p => p.Crystal),
-                "crystal" => query.OrderBy(p => p.Crystal),
-                "crystal_per_price_desc" => query.OrderByDescending(p => p.CrystalPerPrice).ThenByDescending(p => p.Crystal),
-                "crystal_per_price" => query.OrderBy(p => p.CrystalPerPrice).ThenBy(p => p.Crystal),
-                "level_desc" => query.OrderByDescending(p => p.Level),
-                "level" => query.OrderBy(p => p.Level),
-                "opt_count_desc" => query.OrderByDescending(p => p.OptionCountFromCombination),
-                "opt_count" => query.OrderBy(p => p.OptionCountFromCombination),
-                "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice).ThenByDescending(p => p.Price),
-                "unit_price" => query.OrderBy(p => p.UnitPrice).ThenBy(p => p.Price),
-                _ => query
-            };
-            var result = await query.ToListAsync();
-            _memoryCache.Set(cacheKey, result, _cacheTime);
-            queryResult = result;
+            query = query.Where(p => p.Stats.Any(s => s.Type == statType));
         }
 
+        if (iconIds.Any())
+        {
+            query = query.Where(p => iconIds.Contains(p.IconId));
+        }
+        else if (itemIds.Any())
+        {
+            query = query.Where(p => itemIds.Contains(p.ItemId));
+        }
+
+        if (isCustom)
+        {
+            query = query.Where(p => p.ByCustomCraft);
+        }
+
+        query = query.AsSingleQuery();
+        query = sort switch
+        {
+            "cp_desc" => query.OrderByDescending(p => p.CombatPoint),
+            "cp" => query.OrderBy(p => p.CombatPoint),
+            "price_desc" => query.OrderByDescending(p => p.Price),
+            "price" => query.OrderBy(p => p.Price),
+            "grade_desc" => query.OrderByDescending(p => p.Grade),
+            "grade" => query.OrderBy(p => p.Grade),
+            "crystal_desc" => query.OrderByDescending(p => p.Crystal),
+            "crystal" => query.OrderBy(p => p.Crystal),
+            "crystal_per_price_desc" => query.OrderByDescending(p => p.CrystalPerPrice)
+                .ThenByDescending(p => p.Crystal),
+            "crystal_per_price" => query.OrderBy(p => p.CrystalPerPrice).ThenBy(p => p.Crystal),
+            "level_desc" => query.OrderByDescending(p => p.Level),
+            "level" => query.OrderBy(p => p.Level),
+            "opt_count_desc" => query.OrderByDescending(p => p.OptionCountFromCombination),
+            "opt_count" => query.OrderBy(p => p.OptionCountFromCombination),
+            "unit_price_desc" => query.OrderByDescending(p => p.UnitPrice).ThenByDescending(p => p.Price),
+            "unit_price" => query.OrderBy(p => p.UnitPrice).ThenBy(p => p.Price),
+            _ => query
+        };
+        var result = await query.ToListAsync();
+        _memoryCache.Set(iconCacheKey, result, _cacheTime);
+        queryResult = result;
         return queryResult!;
     }
 
