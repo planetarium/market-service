@@ -81,9 +81,6 @@ public class Startup
         var writeMode = workerOptions.SyncProduct || workerOptions.SyncShop;
         if (writeMode)
         {
-            services
-                .AddHostedService<RpcNodeCheckService>()
-                .AddSingleton<RpcNodeHealthCheck>();
             services.AddSingleton<RpcClient>();
             services.AddSingleton<Receiver>();
             services.AddHostedService<RpcService>();
