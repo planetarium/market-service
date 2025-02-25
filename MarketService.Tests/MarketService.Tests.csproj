@@ -25,7 +25,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\lib9c\.Libplanet\test\Libplanet.Mocks\Libplanet.Mocks.csproj" />
         <ProjectReference Include="..\lib9c\Lib9c.MessagePack\Lib9c.MessagePack.csproj" />
         <ProjectReference Include="..\MarketService\MarketService.csproj" />
     </ItemGroup>
