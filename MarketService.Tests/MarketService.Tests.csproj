@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <PackageReference Include="Divergic.Logging.Xunit" Version="4.2.0" />
+        <PackageReference Include="Libplanet.Mocks" Version="5.5.0" />
         <PackageReference Include="MagicOnion.Server" Version="5.0.3" />
         <PackageReference Include="MessagePack" Version="2.5.187" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
@@ -24,7 +25,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\lib9c\.Libplanet\test\Libplanet.Mocks\Libplanet.Mocks.csproj" />
         <ProjectReference Include="..\lib9c\Lib9c.MessagePack\Lib9c.MessagePack.csproj" />
         <ProjectReference Include="..\MarketService\MarketService.csproj" />
     </ItemGroup>
