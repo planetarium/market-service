@@ -9,4 +9,8 @@
         <ProjectReference Include="..\lib9c\.Libplanet\src\Libplanet\Libplanet.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Libplanet.Crypto" Version="5.5.0" />
+    </ItemGroup>
+
 </Project>
