@@ -13,9 +13,9 @@
         <PackageReference Include="EFCore.NamingConventions" Version="7.0.2" />
         <PackageReference Include="Grpc.Core" Version="2.41.0" />
         <PackageReference Include="Grpc.Core.Api" Version="2.41.0" />
-        <PackageReference Include="Libplanet.Action" Version="5.5.0" />
-        <PackageReference Include="Libplanet.Common" Version="5.5.0" />
-        <PackageReference Include="Libplanet.Types" Version="5.5.0" />
+        <PackageReference Include="Libplanet.Action" Version="$(LibplanetVersion)" />
+        <PackageReference Include="Libplanet.Common" Version="$(LibplanetVersion)" />
+        <PackageReference Include="Libplanet.Types" Version="$(LibplanetVersion)" />
         <PackageReference Include="MagicOnion.Client" Version="5.0.3" />
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.2" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.2">

@@ -9,7 +9,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Libplanet.Crypto" Version="5.5.0" />
+      <PackageReference Include="Libplanet.Crypto" Version="$(LibplanetVersion)" />
     </ItemGroup>
 
 </Project>
