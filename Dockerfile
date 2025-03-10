@@ -8,9 +8,6 @@ WORKDIR /src
 COPY ["lib9c/Lib9c/Lib9c.csproj", "lib9c/Lib9c/"]
 COPY ["NineChronicles.RPC.Shared/NineChronicles.RPC.Shared/NineChronicles.RPC.Shared.csproj", "NineChronicles.RPC.Shared/NineChronicles.RPC.Shared/"]
 COPY ["MarketService/MarketService.csproj", "MarketService/"]
-RUN dotnet restore "lib9c/Lib9c"
-RUN dotnet restore "NineChronicles.RPC.Shared/NineChronicles.RPC.Shared"
-RUN dotnet restore "MarketService"
 COPY . ./
 WORKDIR "/src"
 FROM build AS publish

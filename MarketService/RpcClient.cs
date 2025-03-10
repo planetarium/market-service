@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO.Compression;
 using Bencodex;
 using Bencodex.Types;
 using Grpc.Core;
@@ -686,7 +687,7 @@ public class RpcClient
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             address.ToByteArray());
-        if (_codec.Decode(result) is Text t)
+        if (DeCompressState(result) is Text t)
         {
             var sheet = new T();
             sheet.Set(t);
@@ -737,7 +738,7 @@ public class RpcClient
         var result = new List<ShardedShopStateV2>();
         foreach (var kv in queryResult)
         {
-            var decode = _codec.Decode(kv.Value);
+            var decode = DeCompressState(kv.Value);
             if (decode is Dictionary dictionary) result.Add(new ShardedShopStateV2(dictionary));
         }
 
@@ -814,7 +815,7 @@ public class RpcClient
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
             .ForAll(kv =>
             {
-                result.TryAdd(new Address(kv.Key), _codec.Decode(kv.Value));
+                result.TryAdd(new Address(kv.Key), DeCompressState(kv.Value));
             });
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
     }
@@ -837,7 +838,7 @@ public class RpcClient
         await Parallel.ForEachAsync(chunks, _parallelOptions, async (chunk, token) =>
         {
             var queryResult = await Service.GetBulkStateByStateRootHash(hashBytes, accountBytes, chunk);
-            foreach (var kv in queryResult) result[new Address(kv.Key)] = _codec.Decode(kv.Value);
+            foreach (var kv in queryResult) result[new Address(kv.Key)] = DeCompressState(kv.Value);
         });
 
         return result.ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -858,7 +859,7 @@ public class RpcClient
             .WithDegreeOfParallelism(MaxDegreeOfParallelism)
             .ForAll(kv =>
             {
-                var iValue = _codec.Decode(kv.Value);
+                var iValue = DeCompressState(kv.Value);
                 if (iValue is Dictionary dict)
                 {
                     result.TryAdd(new Address(kv.Key), new AgentState(dict));
@@ -883,7 +884,7 @@ public class RpcClient
             hashBytes,
             ReservedAddresses.LegacyAccount.ToByteArray(),
             Addresses.Market.ToByteArray());
-        var value = _codec.Decode(marketResult);
+        var value = DeCompressState(marketResult);
         if (value is List list) return new MarketState(list);
 
         return new MarketState();
@@ -937,6 +938,23 @@ public class RpcClient
         public LocalRandom(int seed) : base(seed)
         {
             Seed = seed;
+        }
+    }
+
+    private IValue DeCompressState(byte[] compressed)
+    {
+        using (var cp = new MemoryStream(compressed))
+        {
+            using (var decompressed = new MemoryStream())
+            {
+                using (var df = new DeflateStream(cp, CompressionMode.Decompress))
+                {
+                    df.CopyTo(decompressed);
+                    decompressed.Seek(0, SeekOrigin.Begin);
+                    var dec = decompressed.ToArray();
+                    return _codec.Decode(dec);
+                }
+            }
         }
     }
 }

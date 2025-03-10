@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,8 +12,8 @@ using Lib9c.Model.Order;
 using Lib9c.Renderers;
 using Libplanet.Action.State;
 using Libplanet.Crypto;
-using Libplanet.Types.Assets;
 using Libplanet.Mocks;
+using Libplanet.Types.Assets;
 using Libplanet.Types.Blocks;
 using MagicOnion;
 using MagicOnion.Server;
@@ -31,6 +32,7 @@ using Nekoyume.TableData;
 using Nekoyume.TableData.Crystal;
 using Xunit;
 using Xunit.Abstractions;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace MarketService.Tests;
 
@@ -694,6 +696,7 @@ public class RpcClientTest
     private class TestService : ServiceBase<IBlockChainService>, IBlockChainService
     {
         private IWorld _states;
+        private Codec _codec = new();
 
         public TestService()
         {
@@ -743,7 +746,7 @@ public class RpcClientTest
             var address = new Address(addressBytes);
             var value = _states.GetLegacyState(address);
             if (value is null) throw new NullReferenceException();
-            return new UnaryResult<byte[]>(new Codec().Encode(value));
+            return new UnaryResult<byte[]>(CompressState(_codec, value));
         }
 
         public UnaryResult<byte[]> GetStateByStateRootHash(
@@ -790,7 +793,7 @@ public class RpcClientTest
                 var value = _states.GetResolvedState(address, Addresses.Agent);
                 if (value is { } iValue)
                 {
-                    result.Add(addressBytes, new Codec().Encode(iValue));
+                    result.Add(addressBytes, CompressState(_codec, iValue));
                 }
             }
 
@@ -854,6 +857,17 @@ public class RpcClientTest
         public void SetAgentState(Address address, AgentState agentState)
         {
             _states = _states.SetAgentState(address, agentState);
+        }
+
+        public static byte[] CompressState(Codec codec, IValue state)
+        {
+            using var c = new MemoryStream();
+            using (var df = new DeflateStream(c, CompressionLevel.Fastest))
+            {
+                var encoded = codec.Encode(state ?? Null.Value);
+                df.Write(encoded, 0, encoded.Length);
+            }
+            return c.ToArray();
         }
     }
 
