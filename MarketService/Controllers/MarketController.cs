@@ -196,7 +196,7 @@ public class MarketController : ControllerBase
             var param = new NpgsqlParameter("@tickers", tickers);
             var query = await _dbContext
                 .FungibleAssetValueProducts
-                .FromSqlRaw($"SELECT * FROM products WHERE exist = {true} AND ticker LIKE ANY(@tickers) ORDER BY {sort.Replace("_", " ")}", param)
+                .FromSqlRaw($"SELECT * FROM products WHERE exist = {true} AND ticker LIKE ANY(@tickers) ORDER BY {sort}", param)
                 .ToListAsync();
 
             queryResult = query;
@@ -248,15 +248,15 @@ public class MarketController : ControllerBase
         return new MarketProductResponse(result.Count, 0, 0, result);
     }
 
-    public static string ReplaceSort(string order)
+    // Map supported order values to column expressions; unknown values fall back to the default.
+    public static string ReplaceSort(string? order)
     {
-        var sort = string.IsNullOrEmpty(order) ? "price_desc" : order;
-        if (sort.Contains("unit_price"))
+        return order switch
         {
-            sort = sort.Replace("unit_price", "unitprice");
-        }
-
-        sort = sort.Replace("_", " ");
-        return sort;
+            "price" => "price",
+            "unit_price" => "unitprice",
+            "unit_price_desc" => "unitprice desc",
+            _ => "price desc",
+        };
     }
 }

@@ -245,6 +245,9 @@ public class MarketControllerTest
     [InlineData("price_desc", "price desc")]
     [InlineData("unit_price", "unitprice")]
     [InlineData("unit_price_desc", "unitprice desc")]
+    [InlineData("price", "price")]
+    [InlineData("unknown", "price desc")]
+    [InlineData("quantity_desc", "price desc")]
     public void ReplaceSort(string order, string expected)
     {
         Assert.Equal(expected, MarketController.ReplaceSort(order));
